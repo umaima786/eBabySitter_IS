@@ -1,9 +1,33 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Image, StyleSheet } from 'react-native';
 import { Provider as PaperProvider, Button, Appbar, Card } from 'react-native-paper';
+import io from 'socket.io-client';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 const App = () => {
   const [showCamera, setShowCamera] = useState(false);
+  const [lastToastTime, setLastToastTime] = useState(0); // State to track the last toast time
+  const socket = io('http://localhost:5000'); // Connect to the WebSocket server
+
+  useEffect(() => {
+    socket.on('connect', () => {
+      console.log('Connected to Python server via WebSocket');
+    });
+
+    socket.on('no_face_detected', (data) => {
+      console.log(data.message); // Log the message when no face is detected
+      const currentTime = Date.now();
+      if (currentTime - lastToastTime > 10000) { // Check if 10 seconds have passed
+        toast.error(data.message); // Show a toast notification with the message
+        setLastToastTime(currentTime); // Update the last toast time
+      }
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [lastToastTime]);
 
   const toggleCameraOn = async () => {
     try {
@@ -24,9 +48,21 @@ const App = () => {
   };
 
   const toggleCameraOff = async () => {
-    
+    try {
+      const response = await fetch('http://127.0.0.1:5000/api/turn-off-camera', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ show_camera: false }), // Turn off the camera
+      });
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
       setShowCamera(false);
-   
+    } catch (error) {
+      console.error('Error turning off camera:', error);
+    }
   };
 
   const playSong = async () => {
@@ -66,7 +102,7 @@ const App = () => {
     <PaperProvider>
       <View style={styles.container}>
         <Appbar.Header>
-          <Appbar.Content title="Camera and Music App" />
+          <Appbar.Content title="eBabySitter" />
         </Appbar.Header>
         <Card style={styles.card}>
           {showCamera && <Image source={{ uri: 'http://127.0.0.1:5000/api/camera-feed' }} style={styles.cameraFeed} />}
@@ -89,6 +125,7 @@ const App = () => {
             </Button>
           </Card.Actions>
         </Card>
+        <ToastContainer />
       </View>
     </PaperProvider>
   );
