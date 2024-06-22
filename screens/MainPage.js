@@ -8,7 +8,7 @@ import 'react-toastify/dist/ReactToastify.css';
 const App = ({ navigation }) => {
   const [showCamera, setShowCamera] = useState(false);
   const [lastToastTime, setLastToastTime] = useState(0); // State to track the last toast time
-  const socket = io('http://localhost:5000'); // Connect to the WebSocket server
+  const socket = io('http://192.168.43.173:5000'); // Connect to the WebSocket server
 
   useEffect(() => {
     socket.on('connect', () => {
@@ -31,7 +31,7 @@ const App = ({ navigation }) => {
 
   const toggleCameraOn = async () => {
     try {
-      const response = await fetch('http://127.0.0.1:5000/api/show-camera', {
+      const response = await fetch('http://192.168.43.173:5000/api/show-camera', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -49,7 +49,7 @@ const App = ({ navigation }) => {
 
   const toggleCameraOff = async () => {
     try {
-      const response = await fetch('http://127.0.0.1:5000/api/turn-off-camera', {
+      const response = await fetch('http://192.168.43.173:5000/api/turn-off-camera', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -67,7 +67,7 @@ const App = ({ navigation }) => {
 
   const playSong = async () => {
     try {
-      const response = await fetch('http://127.0.0.1:5000/api/play-song', {
+      const response = await fetch('http://192.168.43.173:5000/api/play-song', {
         method: 'POST',
       });
       if (!response.ok) {
@@ -86,7 +86,7 @@ const App = ({ navigation }) => {
 
   const stopSong = async () => {
     try {
-      const response = await fetch('http://127.0.0.1:5000/api/stop-song', {
+      const response = await fetch('http://192.168.43.173:5000/api/stop-song', {
         method: 'POST',
       });
       if (!response.ok) {
@@ -105,7 +105,7 @@ const App = ({ navigation }) => {
           <Appbar.Content title="eBabySitter" />
         </Appbar.Header>
         <Card style={styles.card}>
-          {showCamera && <Image source={{ uri: 'http://127.0.0.1:5000/api/camera-feed' }} style={styles.cameraFeed} />}
+          {showCamera && <Image source={{ uri: 'http://192.168.43.173:5000/api/camera-feed' }} style={styles.cameraFeed} />}
           <Card.Actions>
             <Button mode="contained" onPress={toggleCameraOn} style={styles.button} disabled={showCamera}>
               Turn On Camera
