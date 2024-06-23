@@ -175,5 +175,4 @@ if __name__ == '__main__':
     face_detection_thread = threading.Thread(target=face_detection, daemon=True)
     face_detection_thread.start()
     
-    camera_thread = threading.Thread(target=socketio.run, args=(app,), kwargs={'host': '0.0.0.0', 'port': 5000, 'debug': True})
-    camera_thread.start()
+    socketio.run(app, host='0.0.0.0', port=5000, debug=True)
