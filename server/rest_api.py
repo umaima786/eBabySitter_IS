@@ -171,20 +171,8 @@ def save_file():
         #play_audio(filepath)
         return jsonify({"message": "audio saved successfully", "filename": filename}), 200
 
-def start_camera_stream():
-    while True:
-        if show_camera and picam2 is not None:
-            frame = picam2.capture_array()
-            frame_queue.put(frame)
-        else:
-            time.sleep(0.1)  # Adjust sleep time as needed
-
 if __name__ == '__main__':
-    # Start the camera streaming in a background task managed by Flask-SocketIO
-    socketio.start_background_task(start_camera_stream)
-
-    # Start the face detection in a background task managed by Flask-SocketIO
-    socketio.start_background_task(face_detection)
-
+    face_detection_thread = threading.Thread(target=face_detection, daemon=True)
+    face_detection_thread.start()
     # Start Flask-SocketIO server
     socketio.run(app, host='0.0.0.0', port=5000, debug=True)
