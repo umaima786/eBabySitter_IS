@@ -75,7 +75,7 @@ def face_detection():
 
             # Skip frames logic
             frame_skip_counter += 1
-            if frame_skip_counter < SKIP_RATE:
+            if frame_skip_counter < 2:
                 continue
             frame_skip_counter = 0
 
