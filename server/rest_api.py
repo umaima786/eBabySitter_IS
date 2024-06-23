@@ -27,6 +27,9 @@ pygame.mixer.init()
 # Load pre-trained face detection model
 haarcascade_path = '/home/aown/Desktop/eBabySitter/server/data/haarcascades/haarcascade_frontalface_default.xml'
 face_cascade = cv2.CascadeClassifier(haarcascade_path)
+if face_cascade.empty():
+    print("Failed to load face detection model")
+
 
 app.register_blueprint(auth_blueprint)
 
@@ -36,17 +39,26 @@ def initialize_camera():
     if picam2 is None:
         try:
             picam2 = Picamera2()
-            picam2.configure(picam2.create_preview_configuration(main={"size": (320, 240)}))
+            # Adjust the size if necessary
+            picam2.configure(picam2.create_preview_configuration(main={"size": (640, 480)}))
             picam2.start()
         except RuntimeError as e:
             print(f"Failed to initialize camera: {e}")
             picam2 = None
 
+
 def generate_camera_frames():
     while True:
         if show_camera and picam2 is not None:
             frame = picam2.capture_array()
+            if frame is None:
+                print("Failed to capture frame")
+                continue
+
             frame_queue.put(frame)
+
+            # Debug: Show frame shape
+            print(f"Captured frame shape: {frame.shape}")
 
             # Encode frame to JPEG format for streaming
             ret, jpeg = cv2.imencode('.jpg', frame)
@@ -54,32 +66,23 @@ def generate_camera_frames():
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
         else:
-            # Send a placeholder image when camera is off or not initialized
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + open('placeholder.jpg', 'rb').read() + b'\r\n')
+
 
 def face_detection():
     while True:
         if not frame_queue.empty():
             frame = frame_queue.get()
-            
-            # Convert frame to grayscale for face detection
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-
-            # Detect faces in the grayscale frame
             faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
-
-            # Debug: Print number of faces detected
             print(f'Faces detected: {len(faces)}')
-
-            # Draw bounding boxes around detected faces
             for (x, y, w, h) in faces:
                 cv2.rectangle(frame, (x, y), (x+w, y+h), (255, 0, 0), 2)
-
-            # Send a message to the client if no faces are detected
             if len(faces) == 0:
                 print('No face detected')
                 socketio.emit('no_face_detected', {'message': 'No face detected'})
+
 
 @app.route('/api/data')
 def get_data():
