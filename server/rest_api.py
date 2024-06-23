@@ -33,18 +33,19 @@ if face_cascade.empty():
 
 app.register_blueprint(auth_blueprint)
 
-# Attempt to initialize the camera
 def initialize_camera():
     global picam2
     if picam2 is None:
         try:
             picam2 = Picamera2()
-            # Adjust the size if necessary
-            picam2.configure(picam2.create_preview_configuration(main={"size": (256, 144)}))
+            config = picam2.create_preview_configuration(main={"size": (256, 144)})
+            config["controls"] = {"FrameRate": 5}
+            picam2.configure(config)
             picam2.start()
         except RuntimeError as e:
             print(f"Failed to initialize camera: {e}")
             picam2 = None
+
 
 
 def generate_camera_frames():
@@ -67,32 +68,29 @@ def generate_camera_frames():
                    b'Content-Type: image/jpeg\r\n\r\n' + open('placeholder.jpg', 'rb').read() + b'\r\n')
 
 
+frame_skip = 2  # Skip every 2 frames
+frame_count = 0
+
 def face_detection():
+    global frame_count
     while True:
         if not frame_queue.empty():
             frame = frame_queue.get()
+            frame_count += 1
 
-            # Convert frame from RGBA to BGR
+            if frame_count % frame_skip != 0:
+                continue
+
             bgr_frame = cv2.cvtColor(frame, cv2.COLOR_RGBA2BGR)
-
-            # Convert frame to grayscale for face detection
             gray = cv2.cvtColor(bgr_frame, cv2.COLOR_BGR2GRAY)
 
-            # Detect faces in the grayscale frame
             faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
-
-            # Debug: Print number of faces detected
-            print(f'Faces detected: {len(faces)}')
-
-            # Draw bounding boxes around detected faces
             for (x, y, w, h) in faces:
                 cv2.rectangle(bgr_frame, (x, y), (x+w, y+h), (255, 0, 0), 2)
 
-            # Send a message to the client if no faces are detected
             if len(faces) == 0:
                 print('No face detected')
                 socketio.emit('no_face_detected', {'message': 'No face detected'})
-
 
 
 @app.route('/api/data')
