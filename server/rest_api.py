@@ -10,10 +10,15 @@ import string
 from werkzeug.utils import secure_filename
 from routes.auth import auth_blueprint
 import time
+import threading
+
+# For SocketIO optimization, import eventlet or gevent and monkey patch
+import eventlet
+eventlet.monkey_patch()
 
 app = Flask(__name__)
 CORS(app)
-socketio = SocketIO(app, cors_allowed_origins="*")  # Allow all origins for WebSocket
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')  # Use eventlet for better performance
 
 show_camera = False
 picam2 = None
@@ -59,8 +64,8 @@ def generate_camera_frames():
             for (x, y, w, h) in faces:
                 cv2.rectangle(frame, (x, y), (x+w, y+h), (255, 0, 0), 2)
 
-            # Encode frame to JPEG format for streaming
-            ret, jpeg = cv2.imencode('.jpg', frame)
+            # Encode frame to JPEG format with optimized compression
+            ret, jpeg = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 70])
             frame_bytes = jpeg.tobytes()
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
@@ -72,6 +77,10 @@ def generate_camera_frames():
             # Send a placeholder image when camera is off
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + open('placeholder.jpg', 'rb').read() + b'\r\n')
+
+# Run camera frame generation in a separate thread
+def run_camera_stream():
+    threading.Thread(target=lambda: socketio.start_background_task(generate_camera_frames)).start()
 
 @app.route('/api/data')
 def get_data():
@@ -93,6 +102,7 @@ def turn_off_camera():
 
 @app.route('/api/camera-feed')
 def camera_feed():
+    run_camera_stream()
     return Response(generate_camera_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 @app.route('/api/play-song')
@@ -164,4 +174,4 @@ def save_file():
         return jsonify({"message": "audio saved successfully", "filename": filename}), 200
 
 if __name__ == '__main__':
-    socketio.run(app, host='0.0.0.0', port=5000, debug=True)
+    socketio.run(app, host='0.0.0.0', port=5000, debug=True, use_reloader=False)  # Disable reloader to prevent initializing the camera twice
