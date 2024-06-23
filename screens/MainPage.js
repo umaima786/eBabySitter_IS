@@ -3,7 +3,9 @@ import { View, Image, StyleSheet } from 'react-native';
 import { Provider as PaperProvider, Button, Appbar, Card } from 'react-native-paper';
 import io from 'socket.io-client';
 import { ToastContainer, toast } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
+import 'react-toastify/dist/ReactToastify.css'; 
+import GenerateAndUpload from './GenerateAndUpload'; 
+import AudioUpload from './AudioUpload'
 
 const App = ({ navigation }) => {
   const [showCamera, setShowCamera] = useState(false);
@@ -16,7 +18,8 @@ const App = ({ navigation }) => {
     });
 
     socket.on('no_face_detected', (data) => {
-      console.log(data.message); // Log the message when no face is detected
+      console.log("no face"); // Log the message when no face is detected 
+      toast.error(data.message); // Show a toast notification with the message
       const currentTime = Date.now();
       if (currentTime - lastToastTime > 10000) { // Check if 10 seconds have passed
         toast.error(data.message); // Show a toast notification with the message
@@ -67,18 +70,14 @@ const App = ({ navigation }) => {
 
   const playSong = async () => {
     try {
-      const response = await fetch('http://127.0.0.1:5000/api/play-song', {
-        method: 'POST',
+      const response = await fetch('http://localhost:5000/api/play-song', {
+        method: 'GET',
       });
       if (!response.ok) {
         throw new Error('Network response was not ok');
       }
       const data = await response.json();
-      if (data.success) {
-        console.log(`Playing song: ${data.song}`);
-      } else {
-        console.error('Error playing song:', data.message);
-      }
+      console.log(data.message); // This will log "Playing <song_name>"
     } catch (error) {
       console.error('Error playing song:', error);
     }
@@ -125,7 +124,10 @@ const App = ({ navigation }) => {
             </Button>
           </Card.Actions>
         </Card>
-        <ToastContainer />
+        <GenerateAndUpload/> 
+        <AudioUpload/>
+        <ToastContainer /> 
+
       </View>
     </PaperProvider>
   );
