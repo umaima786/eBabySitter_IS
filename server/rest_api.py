@@ -1,6 +1,3 @@
-import eventlet
-eventlet.monkey_patch()
-
 from flask import Flask, Response, jsonify, request
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit
@@ -15,9 +12,9 @@ from routes.auth import auth_blueprint
 import time
 import threading
 
-
 app = Flask(__name__)
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')  # Use eventlet for better performance
+CORS(app)
+socketio = SocketIO(app, cors_allowed_origins="*")  # Allow all origins for WebSocket
 
 show_camera = False
 picam2 = None
@@ -42,7 +39,7 @@ def initialize_camera():
     if picam2 is None:
         try:
             picam2 = Picamera2()
-            picam2.configure(picam2.create_preview_configuration(main={"size": (640, 480)}))
+            picam2.configure(picam2.create_preview_configuration(main={"size": (320, 240)}))  # Lower resolution for better performance
             picam2.start()
         except RuntimeError as e:
             print(f"Failed to initialize camera: {e}")
@@ -52,7 +49,7 @@ def generate_camera_frames():
     while True:
         if show_camera:
             frame = picam2.capture_array()
-
+            
             # Convert frame to grayscale for face detection
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
@@ -63,8 +60,8 @@ def generate_camera_frames():
             for (x, y, w, h) in faces:
                 cv2.rectangle(frame, (x, y), (x+w, y+h), (255, 0, 0), 2)
 
-            # Encode frame to JPEG format with optimized compression
-            ret, jpeg = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 70])
+            # Encode frame to JPEG format for streaming
+            ret, jpeg = cv2.imencode('.jpg', frame)
             frame_bytes = jpeg.tobytes()
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
@@ -76,10 +73,6 @@ def generate_camera_frames():
             # Send a placeholder image when camera is off
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + open('placeholder.jpg', 'rb').read() + b'\r\n')
-
-# Run camera frame generation in a separate thread
-def run_camera_stream():
-    threading.Thread(target=lambda: socketio.start_background_task(generate_camera_frames)).start()
 
 @app.route('/api/data')
 def get_data():
@@ -101,7 +94,6 @@ def turn_off_camera():
 
 @app.route('/api/camera-feed')
 def camera_feed():
-    run_camera_stream()
     return Response(generate_camera_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 @app.route('/api/play-song')
@@ -171,6 +163,6 @@ def save_file():
 
         #play_audio(filepath)
         return jsonify({"message": "audio saved successfully", "filename": filename}), 200
-    
+
 if __name__ == '__main__':
-    socketio.run(app, host='0.0.0.0', port=5000)
+    socketio.run(app, host='0.0.0.0', port=5000, debug=True)
