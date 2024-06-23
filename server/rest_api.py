@@ -48,11 +48,12 @@ def initialize_camera():
 
 
 def generate_camera_frames():
+    global picam2
     while True:
-        if not frame_queue.empty():
+        if show_camera and not frame_queue.empty():
             frame = frame_queue.get()
 
-            # Convert frame from RGBA to BGR
+            # Convert frame from RGBA to BGR for compatibility with OpenCV
             bgr_frame = cv2.cvtColor(frame, cv2.COLOR_RGBA2BGR)
 
             # Convert frame to grayscale for face detection
@@ -61,35 +62,32 @@ def generate_camera_frames():
             # Detect faces in the grayscale frame
             faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
 
-            # Debug: Print number of faces detected
-            print(f'Faces detected: {len(faces)}')
-
             # Draw bounding boxes around detected faces
             for (x, y, w, h) in faces:
                 cv2.rectangle(bgr_frame, (x, y), (x+w, y+h), (255, 0, 0), 2)
 
-            # Send a message to the client if no faces are detected
-            if len(faces) == 0:
-                print('No face detected')
-                socketio.emit('no_face_detected', {'message': 'No face detected'})
-
-        if show_camera and picam2 is not None:
-            frame = picam2.capture_array()
-            if frame is None:
-                print("Failed to capture frame")
-                continue
-
-            frame_queue.put(frame)
-
             # Encode frame to JPEG format for streaming
-            ret, jpeg = cv2.imencode('.jpg', frame)
+            ret, jpeg = cv2.imencode('.jpg', bgr_frame)
             frame_bytes = jpeg.tobytes()
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+
+            # Send a message to the client if no faces are detected
+            if len(faces) == 0:
+                socketio.emit('no_face_detected', {'message': 'No face detected'})
         else:
+            # Send a placeholder image when camera is off or queue is empty
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + open('placeholder.jpg', 'rb').read() + b'\r\n')
 
+        # Capture new frame if camera is on and queue is not too long
+        if show_camera and picam2 is not None and frame_queue.qsize() < 10:
+            try:
+                frame = picam2.capture_array()
+                if frame is not None:
+                    frame_queue.put(frame)
+            except Exception as e:
+                print(f"Failed to capture frame: {e}")
 
 @app.route('/api/data')
 def get_data():
