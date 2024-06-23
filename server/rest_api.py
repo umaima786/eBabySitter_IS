@@ -1,14 +1,15 @@
 from flask import Flask, Response, jsonify, request
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit
+from picamera2 import Picamera2
 import cv2
 import pygame
 import os
 import random
-import random
 import string
-from werkzeug.utils import secure_filename 
+from werkzeug.utils import secure_filename
 from routes.auth import auth_blueprint
+import time
 
 app = Flask(__name__)
 CORS(app)
@@ -16,22 +17,34 @@ socketio = SocketIO(app, cors_allowed_origins="*")  # Allow all origins for WebS
 
 show_camera = False
 
+picam2 = None
+
 # Initialize pygame mixer for playing audio
 pygame.mixer.init()
 
 # Load pre-trained face detection model
-face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-
+haarcascade_path = '/home/aown/Desktop/eBabySitter/server/data/haarcascades/haarcascade_frontalface_default.xml'
+face_cascade = cv2.CascadeClassifier(haarcascade_path)
 
 app.register_blueprint(auth_blueprint)
 
+# Attempt to initialize the camera
+def initialize_camera():
+    global picam2
+    if picam2 is None:
+        try:
+            picam2 = Picamera2()
+            picam2.configure(picam2.create_preview_configuration(main={"size": (320, 240)}))
+            picam2.start()
+        except RuntimeError as e:
+            print(f"Failed to initialize camera: {e}")
+            picam2 = None
+
 def generate_camera_frames():
-    camera = cv2.VideoCapture(0)   # Use 0 for default camera, or replace with camera index if multiple cameras are available
+    picam2.start()
     while True:
         if show_camera:
-            success, frame = camera.read()
-            if not success:
-                break
+            frame = picam2.capture_array()
 
             # Convert frame to grayscale for face detection
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -64,6 +77,7 @@ def get_data():
 
 @app.route('/api/show-camera', methods=['POST'])
 def toggle_camera():
+    initialize_camera()
     global show_camera
     show_camera = True
     return jsonify({'success': True})
@@ -95,13 +109,14 @@ def play_song():
 @app.route('/api/stop-song', methods=['POST'])
 def stop_song():
     pygame.mixer.music.stop()
-    return jsonify({'success': True}) 
+    return jsonify({'success': True})
 
 # Upload folder configuration
 UPLOAD_FOLDER = 'uploads'
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
 @app.route('/upload', methods=['POST'])
 def upload_file():
     if 'file' not in request.files:
@@ -112,9 +127,9 @@ def upload_file():
     if file:
         filename = secure_filename(file.filename)
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        file.save(filepath)  
-        print(filepath)  
-    
+        file.save(filepath)
+        print(filepath)
+
         #play_audio(filepath)
         return jsonify({"message": "File uploaded successfully", "filename": filename}), 200
 
@@ -123,11 +138,12 @@ def generate_random_string_with_extension(length):
     random_string = ''.join(random.choices(letters, k=length))
     return random_string + ".mp3"
 
-# save folder configuration
+# Save folder configuration
 SAVE_FOLDER = 'save'
 if not os.path.exists(SAVE_FOLDER):
     os.makedirs(SAVE_FOLDER)
 app.config['SAVE_FOLDER'] = SAVE_FOLDER
+
 @app.route('/save', methods=['POST'])
 def save_file():
     if 'file' not in request.files:
@@ -138,9 +154,9 @@ def save_file():
     if file:
         filename = generate_random_string_with_extension(6)
         filepath = os.path.join(app.config['SAVE_FOLDER'], filename)
-        file.save(filepath)  
-        print(filepath)  
-    
+        file.save(filepath)
+        print(filepath)
+
         #play_audio(filepath)
         return jsonify({"message": "audio saved successfully", "filename": filename}), 200
 
