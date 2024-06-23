@@ -1,3 +1,5 @@
+import eventlet
+eventlet.monkey_patch()
 from flask import Flask, Response, jsonify, request
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit
@@ -12,12 +14,9 @@ from routes.auth import auth_blueprint
 import time
 import threading
 
-# For SocketIO optimization, import eventlet or gevent and monkey patch
-import eventlet
-eventlet.monkey_patch()
 
 app = Flask(__name__)
-CORS(app)
+socketio = SocketIO(app)
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')  # Use eventlet for better performance
 
 show_camera = False
@@ -172,6 +171,6 @@ def save_file():
 
         #play_audio(filepath)
         return jsonify({"message": "audio saved successfully", "filename": filename}), 200
-
+    
 if __name__ == '__main__':
-    socketio.run(app, host='0.0.0.0', port=5000, debug=True, use_reloader=False)  # Disable reloader to prevent initializing the camera twice
+    socketio.run(app, host='0.0.0.0', port=5000)
