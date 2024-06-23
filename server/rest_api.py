@@ -57,9 +57,6 @@ def generate_camera_frames():
 
             frame_queue.put(frame)
 
-            # Debug: Show frame shape
-            print(f"Captured frame shape: {frame.shape}")
-
             # Encode frame to JPEG format for streaming
             ret, jpeg = cv2.imencode('.jpg', frame)
             frame_bytes = jpeg.tobytes()
