@@ -1,5 +1,6 @@
 import eventlet
 eventlet.monkey_patch()
+
 from flask import Flask, Response, jsonify, request
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit
@@ -16,7 +17,6 @@ import threading
 
 
 app = Flask(__name__)
-socketio = SocketIO(app)
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')  # Use eventlet for better performance
 
 show_camera = False
