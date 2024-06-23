@@ -22,13 +22,11 @@ picam2 = None
 pygame.mixer.init()
 
 # Load pre-trained face detection model
-haarcascade_path = '/home/aown/Desktop/eBabySitter/server/data/haarcascades/haarcascade_frontalface_default.xml'
-face_cascade = cv2.CascadeClassifier(haarcascade_path)
+face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
 
 # Check if the face cascade is loaded properly
 if face_cascade.empty():
-    print("Error loading face cascade. Check the haarcascade file path.")
-    exit()
+    raise IOError("Failed to load haarcascade_frontalface_default.xml. Check the path and OpenCV installation.")
 
 app.register_blueprint(auth_blueprint)
 
