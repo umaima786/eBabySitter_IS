@@ -9,6 +9,7 @@ import random
 import string
 from werkzeug.utils import secure_filename
 from routes.auth import auth_blueprint
+import time
 import threading
 import queue
 
@@ -20,7 +21,6 @@ show_camera = False
 
 picam2 = None
 frame_queue = queue.Queue()
-processed_frame_queue = queue.Queue()
 
 # Initialize pygame mixer for playing audio
 pygame.mixer.init()
@@ -49,11 +49,8 @@ def generate_camera_frames():
             frame = picam2.capture_array()
             frame_queue.put(frame)
 
-            # Wait for processed frame from face detection thread
-            processed_frame = processed_frame_queue.get()
-
             # Encode frame to JPEG format for streaming
-            ret, jpeg = cv2.imencode('.jpg', processed_frame)
+            ret, jpeg = cv2.imencode('.jpg', frame)
             frame_bytes = jpeg.tobytes()
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
@@ -79,10 +76,8 @@ def face_detection():
 
             # Send a message to the client if no faces are detected
             if len(faces) == 0:
+                print('No face detected')
                 socketio.emit('no_face_detected', {'message': 'No face detected'})
-
-            # Put processed frame in the processed frame queue
-            processed_frame_queue.put(frame)
 
 @app.route('/api/data')
 def get_data():
