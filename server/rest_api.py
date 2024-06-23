@@ -40,7 +40,7 @@ def initialize_camera():
         try:
             picam2 = Picamera2()
             # Adjust the size if necessary
-            picam2.configure(picam2.create_preview_configuration(main={"size": (640, 480)}))
+            picam2.configure(picam2.create_preview_configuration(main={"size": (256, 144)}))
             picam2.start()
         except RuntimeError as e:
             print(f"Failed to initialize camera: {e}")
@@ -75,14 +75,8 @@ def face_detection():
             # Convert frame from RGBA to BGR
             bgr_frame = cv2.cvtColor(frame, cv2.COLOR_RGBA2BGR)
 
-            # Debug: Print frame shape after conversion to BGR
-            print(f'BGR frame shape: {bgr_frame.shape}')
-
             # Convert frame to grayscale for face detection
             gray = cv2.cvtColor(bgr_frame, cv2.COLOR_BGR2GRAY)
-
-            # Debug: Print frame shape after conversion to grayscale
-            print(f'Grayscale frame shape: {gray.shape}')
 
             # Detect faces in the grayscale frame
             faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
