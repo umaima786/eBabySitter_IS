@@ -71,14 +71,34 @@ def face_detection():
     while True:
         if not frame_queue.empty():
             frame = frame_queue.get()
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+            # Convert frame from RGBA to BGR
+            bgr_frame = cv2.cvtColor(frame, cv2.COLOR_RGBA2BGR)
+
+            # Debug: Print frame shape after conversion to BGR
+            print(f'BGR frame shape: {bgr_frame.shape}')
+
+            # Convert frame to grayscale for face detection
+            gray = cv2.cvtColor(bgr_frame, cv2.COLOR_BGR2GRAY)
+
+            # Debug: Print frame shape after conversion to grayscale
+            print(f'Grayscale frame shape: {gray.shape}')
+
+            # Detect faces in the grayscale frame
             faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+
+            # Debug: Print number of faces detected
             print(f'Faces detected: {len(faces)}')
+
+            # Draw bounding boxes around detected faces
             for (x, y, w, h) in faces:
-                cv2.rectangle(frame, (x, y), (x+w, y+h), (255, 0, 0), 2)
+                cv2.rectangle(bgr_frame, (x, y), (x+w, y+h), (255, 0, 0), 2)
+
+            # Send a message to the client if no faces are detected
             if len(faces) == 0:
                 print('No face detected')
                 socketio.emit('no_face_detected', {'message': 'No face detected'})
+
 
 
 @app.route('/api/data')
