@@ -71,12 +71,12 @@ def face_detection():
         except queue.Empty:
             continue
 
-        bgr_frame = cv2.cvtColor(frame, cv2.COLOR_RGBA2BGR)
-        gray = cv2.cvtColor(bgr_frame, cv2.COLOR_BGR2GRAY)
+        # bgr_frame = cv2.cvtColor(frame, cv2.COLOR_RGBA2BGR)
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
         faces = face_cascade.detectMultiScale(gray, scaleFactor=1.2, minNeighbors=3, minSize=(30, 30))
         for (x, y, w, h) in faces:
-            cv2.rectangle(bgr_frame, (x, y), (x+w, y+h), (255, 0, 0), 2)
+            cv2.rectangle(frame, (x, y), (x+w, y+h), (255, 0, 0), 2)
 
         if len(faces) == 0:
             print('No face detected')
