@@ -40,7 +40,7 @@ def initialize_camera():
         try:
             picam2 = Picamera2()
             # Adjust the size if necessary
-            picam2.configure(picam2.create_preview_configuration(main={"size": (160, 120), "fps": 10}))
+            picam2.configure(picam2.create_preview_configuration(main={"size": (160, 120)}))
             picam2.start()
         except RuntimeError as e:
             print(f"Failed to initialize camera: {e}")
