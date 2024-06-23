@@ -40,7 +40,7 @@ def initialize_camera():
         try:
             picam2 = Picamera2()
             # Adjust the size if necessary
-            picam2.configure(picam2.create_preview_configuration(main={"size": (256, 144)}))
+            picam2.configure(picam2.create_preview_configuration(main={"size": (160, 120), "fps": 10}))
             picam2.start()
         except RuntimeError as e:
             print(f"Failed to initialize camera: {e}")
@@ -51,9 +51,9 @@ def generate_camera_frames():
     while True:
         if not frame_queue.empty():
             frame = frame_queue.get()
-
-            # Convert frame from RGBA to BGR
-            bgr_frame = cv2.cvtColor(frame, cv2.COLOR_RGBA2BGR)
+            
+            # Convert frame from RGB to BGR (since OpenCV uses BGR format)
+            bgr_frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
 
             # Convert frame to grayscale for face detection
             gray = cv2.cvtColor(bgr_frame, cv2.COLOR_BGR2GRAY)
@@ -68,10 +68,11 @@ def generate_camera_frames():
             for (x, y, w, h) in faces:
                 cv2.rectangle(bgr_frame, (x, y), (x+w, y+h), (255, 0, 0), 2)
 
-            # Send a message to the client if no faces are detected
-            if len(faces) == 0:
-                print('No face detected')
-                socketio.emit('no_face_detected', {'message': 'No face detected'})
+            # Encode frame to JPEG format for streaming
+            ret, jpeg = cv2.imencode('.jpg', bgr_frame)
+            frame_bytes = jpeg.tobytes()
+            yield (b'--frame\r\n'
+                   b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
 
         if show_camera and picam2 is not None:
             frame = picam2.capture_array()
@@ -81,14 +82,6 @@ def generate_camera_frames():
 
             frame_queue.put(frame)
 
-            # Encode frame to JPEG format for streaming
-            ret, jpeg = cv2.imencode('.jpg', frame)
-            frame_bytes = jpeg.tobytes()
-            yield (b'--frame\r\n'
-                   b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
-        else:
-            yield (b'--frame\r\n'
-                   b'Content-Type: image/jpeg\r\n\r\n' + open('placeholder.jpg', 'rb').read() + b'\r\n')
 
 @app.route('/api/data')
 def get_data():
@@ -180,5 +173,12 @@ def save_file():
         #play_audio(filepath)
         return jsonify({"message": "audio saved successfully", "filename": filename}), 200
 
+def start_camera_thread():
+    camera_thread = threading.Thread(target=generate_camera_frames)
+    camera_thread.daemon = True
+    camera_thread.start()
+
 if __name__ == '__main__':
+    start_camera_thread()
     socketio.run(app, host='0.0.0.0', port=5000, debug=True)
+
