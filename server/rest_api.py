@@ -49,35 +49,8 @@ def initialize_camera():
 
 def generate_camera_frames():
     while True:
-        if show_camera and picam2 is not None:
-            frame = picam2.capture_array()
-            if frame is None:
-                print("Failed to capture frame")
-                continue
-
-            frame_queue.put(frame)
-
-            # Encode frame to JPEG format for streaming
-            ret, jpeg = cv2.imencode('.jpg', frame)
-            frame_bytes = jpeg.tobytes()
-            yield (b'--frame\r\n'
-                   b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
-        else:
-            yield (b'--frame\r\n'
-                   b'Content-Type: image/jpeg\r\n\r\n' + open('placeholder.jpg', 'rb').read() + b'\r\n')
-
-
-def face_detection():
-    frame_skip_counter = 0 
-    while True:
         if not frame_queue.empty():
             frame = frame_queue.get()
-
-            # Skip frames logic
-            frame_skip_counter += 1
-            if frame_skip_counter < 2:
-                continue
-            frame_skip_counter = 0
 
             # Convert frame from RGBA to BGR
             bgr_frame = cv2.cvtColor(frame, cv2.COLOR_RGBA2BGR)
@@ -100,6 +73,22 @@ def face_detection():
                 print('No face detected')
                 socketio.emit('no_face_detected', {'message': 'No face detected'})
 
+        if show_camera and picam2 is not None:
+            frame = picam2.capture_array()
+            if frame is None:
+                print("Failed to capture frame")
+                continue
+
+            frame_queue.put(frame)
+
+            # Encode frame to JPEG format for streaming
+            ret, jpeg = cv2.imencode('.jpg', frame)
+            frame_bytes = jpeg.tobytes()
+            yield (b'--frame\r\n'
+                   b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+        else:
+            yield (b'--frame\r\n'
+                   b'Content-Type: image/jpeg\r\n\r\n' + open('placeholder.jpg', 'rb').read() + b'\r\n')
 
 
 @app.route('/api/data')
@@ -193,7 +182,4 @@ def save_file():
         return jsonify({"message": "audio saved successfully", "filename": filename}), 200
 
 if __name__ == '__main__':
-    face_detection_thread = threading.Thread(target=face_detection, daemon=True)
-    face_detection_thread.start()
-    # Start Flask-SocketIO server
     socketio.run(app, host='0.0.0.0', port=5000, debug=True)
