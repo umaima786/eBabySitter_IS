@@ -37,7 +37,7 @@ def initialize_camera():
     if picam2 is None:
         try:
             picam2 = Picamera2()
-            picam2.configure(picam2.create_preview_configuration(main={"size": (320, 240)}))
+            picam2.configure(picam2.create_preview_configuration(main={"size": (1920, 1080)}))
             picam2.start()
         except RuntimeError as e:
             print(f"Failed to initialize camera: {e}")
@@ -69,6 +69,9 @@ def face_detection():
 
             # Detect faces in the grayscale frame
             faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+
+            # Debug: Print number of faces detected
+            print(f'Faces detected: {len(faces)}')
 
             # Draw bounding boxes around detected faces
             for (x, y, w, h) in faces:
