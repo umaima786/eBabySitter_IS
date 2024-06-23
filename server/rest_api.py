@@ -11,13 +11,16 @@ from werkzeug.utils import secure_filename
 from routes.auth import auth_blueprint
 import time
 import threading
+import queue
 
 app = Flask(__name__)
 CORS(app)
 socketio = SocketIO(app, cors_allowed_origins="*")  # Allow all origins for WebSocket
 
 show_camera = False
+
 picam2 = None
+frame_queue = queue.Queue()
 
 # Initialize pygame mixer for playing audio
 pygame.mixer.init()
@@ -25,11 +28,6 @@ pygame.mixer.init()
 # Load pre-trained face detection model
 haarcascade_path = '/home/aown/Desktop/eBabySitter/server/data/haarcascades/haarcascade_frontalface_default.xml'
 face_cascade = cv2.CascadeClassifier(haarcascade_path)
-
-# Check if the face cascade is loaded properly
-if face_cascade.empty():
-    print("Error loading face cascade. Check the haarcascade file path.")
-    exit()
 
 app.register_blueprint(auth_blueprint)
 
@@ -39,7 +37,7 @@ def initialize_camera():
     if picam2 is None:
         try:
             picam2 = Picamera2()
-            picam2.configure(picam2.create_preview_configuration(main={"size": (320, 240)}))  # Lower resolution for better performance
+            picam2.configure(picam2.create_preview_configuration(main={"size": (320, 240)}))
             picam2.start()
         except RuntimeError as e:
             print(f"Failed to initialize camera: {e}")
@@ -49,6 +47,22 @@ def generate_camera_frames():
     while True:
         if show_camera:
             frame = picam2.capture_array()
+            frame_queue.put(frame)
+
+            # Encode frame to JPEG format for streaming
+            ret, jpeg = cv2.imencode('.jpg', frame)
+            frame_bytes = jpeg.tobytes()
+            yield (b'--frame\r\n'
+                   b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+        else:
+            # Send a placeholder image when camera is off
+            yield (b'--frame\r\n'
+                   b'Content-Type: image/jpeg\r\n\r\n' + open('placeholder.jpg', 'rb').read() + b'\r\n')
+
+def face_detection():
+    while True:
+        if not frame_queue.empty():
+            frame = frame_queue.get()
             
             # Convert frame to grayscale for face detection
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -60,19 +74,9 @@ def generate_camera_frames():
             for (x, y, w, h) in faces:
                 cv2.rectangle(frame, (x, y), (x+w, y+h), (255, 0, 0), 2)
 
-            # Encode frame to JPEG format for streaming
-            ret, jpeg = cv2.imencode('.jpg', frame)
-            frame_bytes = jpeg.tobytes()
-            yield (b'--frame\r\n'
-                   b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
-
             # Send a message to the client if no faces are detected
             if len(faces) == 0:
                 socketio.emit('no_face_detected', {'message': 'No face detected'})
-        else:
-            # Send a placeholder image when camera is off
-            yield (b'--frame\r\n'
-                   b'Content-Type: image/jpeg\r\n\r\n' + open('placeholder.jpg', 'rb').read() + b'\r\n')
 
 @app.route('/api/data')
 def get_data():
@@ -165,4 +169,6 @@ def save_file():
         return jsonify({"message": "audio saved successfully", "filename": filename}), 200
 
 if __name__ == '__main__':
+    face_detection_thread = threading.Thread(target=face_detection, daemon=True)
+    face_detection_thread.start()
     socketio.run(app, host='0.0.0.0', port=5000, debug=True)
