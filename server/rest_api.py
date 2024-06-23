@@ -36,7 +36,7 @@ def initialize_camera():
     if picam2 is None:
         try:
             picam2 = Picamera2()
-            picam2.configure(picam2.create_preview_configuration(main={"size": (256, 144)}))
+            picam2.configure(picam2.create_preview_configuration(main={"size": (720, 480)}))
             picam2.start()
         except RuntimeError as e:
             print(f"Failed to initialize camera: {e}")
@@ -171,8 +171,17 @@ def save_file():
         #play_audio(filepath)
         return jsonify({"message": "audio saved successfully", "filename": filename}), 200
 
+def start_camera_stream():
+    while True:
+        if show_camera and picam2 is not None:
+            frame = picam2.capture_array()
+            frame_queue.put(frame)
+        else:
+            time.sleep(0.1)  # Adjust sleep time as needed
+
 if __name__ == '__main__':
-    face_detection_thread = threading.Thread(target=face_detection, daemon=True)
-    face_detection_thread.start()
-    
+    # Start the camera streaming in a background task managed by Flask-SocketIO
+    socketio.start_background_task(start_camera_stream)
+
+    # Start Flask-SocketIO server
     socketio.run(app, host='0.0.0.0', port=5000, debug=True)
