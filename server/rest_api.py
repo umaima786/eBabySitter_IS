@@ -33,31 +33,28 @@ if face_cascade.empty():
 
 app.register_blueprint(auth_blueprint)
 
-# Attempt to initialize the camera
 def initialize_camera():
     global picam2
     if picam2 is None:
         try:
             picam2 = Picamera2()
-            # Adjust the size if necessary
-            picam2.configure(picam2.create_preview_configuration(main={"size": (256, 144)}))
+            config = picam2.create_preview_configuration(main={"size": (256, 144), "format": "RGB888"})
+            config["controls"] = {"FrameRate": 10}
+            picam2.configure(config)
             picam2.start()
         except RuntimeError as e:
             print(f"Failed to initialize camera: {e}")
             picam2 = None
 
 
+
 def generate_camera_frames():
     while True:
         if show_camera and picam2 is not None:
             frame = picam2.capture_array()
-            if frame is None:
-                print("Failed to capture frame")
-                continue
+            if frame_queue.qsize() < 5:  # Adjust the size based on your needs
+                frame_queue.put(frame)
 
-            frame_queue.put(frame)
-
-            # Encode frame to JPEG format for streaming
             ret, jpeg = cv2.imencode('.jpg', frame)
             frame_bytes = jpeg.tobytes()
             yield (b'--frame\r\n'
@@ -69,29 +66,21 @@ def generate_camera_frames():
 
 def face_detection():
     while True:
-        if not frame_queue.empty():
-            frame = frame_queue.get()
+        try:
+            frame = frame_queue.get(timeout=1)  # Wait for a frame for up to 1 second
+        except queue.Empty:
+            continue
 
-            # Convert frame from RGBA to BGR
-            bgr_frame = cv2.cvtColor(frame, cv2.COLOR_RGBA2BGR)
+        bgr_frame = cv2.cvtColor(frame, cv2.COLOR_RGBA2BGR)
+        gray = cv2.cvtColor(bgr_frame, cv2.COLOR_BGR2GRAY)
 
-            # Convert frame to grayscale for face detection
-            gray = cv2.cvtColor(bgr_frame, cv2.COLOR_BGR2GRAY)
+        faces = face_cascade.detectMultiScale(gray, scaleFactor=1.2, minNeighbors=3, minSize=(30, 30))
+        for (x, y, w, h) in faces:
+            cv2.rectangle(bgr_frame, (x, y), (x+w, y+h), (255, 0, 0), 2)
 
-            # Detect faces in the grayscale frame
-            faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
-
-            # Debug: Print number of faces detected
-            print(f'Faces detected: {len(faces)}')
-
-            # Draw bounding boxes around detected faces
-            for (x, y, w, h) in faces:
-                cv2.rectangle(bgr_frame, (x, y), (x+w, y+h), (255, 0, 0), 2)
-
-            # Send a message to the client if no faces are detected
-            if len(faces) == 0:
-                print('No face detected')
-                socketio.emit('no_face_detected', {'message': 'No face detected'})
+        if len(faces) == 0:
+            print('No face detected')
+            socketio.emit('no_face_detected', {'message': 'No face detected'})
 
 
 
