@@ -9,7 +9,6 @@ import random
 import string
 from werkzeug.utils import secure_filename
 from routes.auth import auth_blueprint
-import time
 import threading
 import queue
 
@@ -37,7 +36,7 @@ def initialize_camera():
     if picam2 is None:
         try:
             picam2 = Picamera2()
-            picam2.configure(picam2.create_preview_configuration(main={"size": (320, 240)}))
+            picam2.configure(picam2.create_preview_configuration(main={"size": (256, 144)}))
             picam2.start()
         except RuntimeError as e:
             print(f"Failed to initialize camera: {e}")
@@ -45,7 +44,7 @@ def initialize_camera():
 
 def generate_camera_frames():
     while True:
-        if show_camera:
+        if show_camera and picam2 is not None:
             frame = picam2.capture_array()
             frame_queue.put(frame)
 
@@ -55,7 +54,7 @@ def generate_camera_frames():
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
         else:
-            # Send a placeholder image when camera is off
+            # Send a placeholder image when camera is off or not initialized
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + open('placeholder.jpg', 'rb').read() + b'\r\n')
 
@@ -175,4 +174,6 @@ def save_file():
 if __name__ == '__main__':
     face_detection_thread = threading.Thread(target=face_detection, daemon=True)
     face_detection_thread.start()
-    socketio.run(app, host='0.0.0.0', port=5000, debug=True)
+    
+    camera_thread = threading.Thread(target=socketio.run, args=(app,), kwargs={'host': '0.0.0.0', 'port': 5000, 'debug': True})
+    camera_thread.start()
