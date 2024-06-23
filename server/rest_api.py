@@ -61,9 +61,6 @@ def generate_camera_frames():
             # Detect faces in the grayscale frame
             faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
 
-            # Debug: Print number of faces detected
-            print(f'Faces detected: {len(faces)}')
-
             # Draw bounding boxes around detected faces
             for (x, y, w, h) in faces:
                 cv2.rectangle(bgr_frame, (x, y), (x+w, y+h), (255, 0, 0), 2)
@@ -173,12 +170,5 @@ def save_file():
         #play_audio(filepath)
         return jsonify({"message": "audio saved successfully", "filename": filename}), 200
 
-def start_camera_thread():
-    camera_thread = threading.Thread(target=generate_camera_frames)
-    camera_thread.daemon = True
-    camera_thread.start()
-
 if __name__ == '__main__':
-    start_camera_thread()
     socketio.run(app, host='0.0.0.0', port=5000, debug=True)
-
