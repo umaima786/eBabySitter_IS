@@ -37,7 +37,7 @@ def initialize_camera():
     if picam2 is None:
         try:
             picam2 = Picamera2()
-            picam2.configure(picam2.create_preview_configuration(main={"size": (640, 480)}))
+            picam2.configure(picam2.create_preview_configuration(main={"size": (320, 240)}))
             picam2.start()
         except RuntimeError as e:
             print(f"Failed to initialize camera: {e}")
