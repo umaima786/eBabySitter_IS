@@ -68,9 +68,16 @@ def generate_camera_frames():
 
 
 def face_detection():
+    frame_skip_counter = 0 
     while True:
         if not frame_queue.empty():
             frame = frame_queue.get()
+
+            # Skip frames logic
+            frame_skip_counter += 1
+            if frame_skip_counter < SKIP_RATE:
+                continue
+            frame_skip_counter = 0
 
             # Convert frame from RGBA to BGR
             bgr_frame = cv2.cvtColor(frame, cv2.COLOR_RGBA2BGR)
