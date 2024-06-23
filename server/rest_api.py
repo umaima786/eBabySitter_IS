@@ -9,7 +9,7 @@ import random
 import string
 from werkzeug.utils import secure_filename
 from routes.auth import auth_blueprint
-import threading
+import time
 import queue
 
 app = Flask(__name__)
@@ -182,6 +182,9 @@ def start_camera_stream():
 if __name__ == '__main__':
     # Start the camera streaming in a background task managed by Flask-SocketIO
     socketio.start_background_task(start_camera_stream)
+
+    # Start the face detection in a background task managed by Flask-SocketIO
+    socketio.start_background_task(face_detection)
 
     # Start Flask-SocketIO server
     socketio.run(app, host='0.0.0.0', port=5000, debug=True)
