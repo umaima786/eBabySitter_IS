@@ -12,7 +12,7 @@ import threading
 import queue
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "http://192.168.43.177:8081"}})
+CORS(app)
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 @socketio.on('connect')
