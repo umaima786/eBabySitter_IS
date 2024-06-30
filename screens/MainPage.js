@@ -1,14 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { View, Image, StyleSheet, Alert } from 'react-native';
+import { View, Image, StyleSheet } from 'react-native';
 import { Provider as PaperProvider, Button, Appbar, Card } from 'react-native-paper';
 import io from 'socket.io-client';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css'; 
 import GenerateAndUpload from './GenerateAndUpload'; 
 import AudioUpload from './AudioUpload';
 
 const App = ({ navigation }) => {
   const [showCamera, setShowCamera] = useState(false);
-  const [lastAlertTime, setLastAlertTime] = useState(0); // State to track the last alert time
-  const socket = io('http://192.168.43.173:5000'); // Connect to the WebSocket server
+  const [lastToastTime, setLastToastTime] = useState(0);
+  const socket = io('http://192.168.43.173:5000');
 
   useEffect(() => {
     socket.on('connect', () => {
@@ -16,23 +18,18 @@ const App = ({ navigation }) => {
     });
 
     socket.on('no_face_detected', (data) => {
-      console.log("no face"); // Log the message when no face is detected
+      console.log("Received 'no_face_detected' event:", data);
       const currentTime = Date.now();
-      if (currentTime - lastAlertTime > 10000) { // Check if 10 seconds have passed since the last alert
-        Alert.alert(
-          'Face Not Detected',
-          data.message,
-          [{ text: 'OK', onPress: () => console.log('OK Pressed') }],
-          { cancelable: false }
-        );
-        setLastAlertTime(currentTime); // Update the last alert time
+      if (currentTime - lastToastTime > 10000) {
+        toast.error(data.message);
+        setLastToastTime(currentTime);
       }
     });
 
     return () => {
       socket.disconnect();
     };
-  }, [lastAlertTime]);
+  }, [lastToastTime]);
 
   const toggleCameraOn = async () => {
     try {
@@ -41,7 +38,7 @@ const App = ({ navigation }) => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ show_camera: true }), // Turn on the camera
+        body: JSON.stringify({ show_camera: true }),
       });
       if (!response.ok) {
         throw new Error('Network response was not ok');
@@ -59,7 +56,7 @@ const App = ({ navigation }) => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ show_camera: false }), // Turn off the camera
+        body: JSON.stringify({ show_camera: false }),
       });
       if (!response.ok) {
         throw new Error('Network response was not ok');
@@ -79,7 +76,7 @@ const App = ({ navigation }) => {
         throw new Error('Network response was not ok');
       }
       const data = await response.json();
-      console.log(data.message); // This will log "Playing <song_name>"
+      console.log(data.message);
     } catch (error) {
       console.error('Error playing song:', error);
     }
@@ -128,6 +125,7 @@ const App = ({ navigation }) => {
         </Card>
         <GenerateAndUpload /> 
         <AudioUpload />
+        <ToastContainer />
       </View>
     </PaperProvider>
   );
