@@ -8,7 +8,6 @@ import os
 import random
 import string
 from werkzeug.utils import secure_filename
-from routes.auth import auth_blueprint
 import threading
 import queue
 import time
@@ -31,8 +30,6 @@ face_cascade = cv2.CascadeClassifier(haarcascade_path)
 if face_cascade.empty():
     print("Failed to load face detection model")
 
-
-app.register_blueprint(auth_blueprint)
 
 last_face_detected_time = time.time()
 
@@ -90,7 +87,6 @@ def generate_camera_frames():
             frame_queue.put(frame)
 
 
-
 @app.route('/api/data')
 def get_data():
     data = {'message': 'Hello from Python server!'}
@@ -101,6 +97,7 @@ def toggle_camera():
     initialize_camera()
     global show_camera
     show_camera = True
+    start_monitor_thread()  # Start monitor thread when camera is toggled on
     return jsonify({'success': True})
 
 @app.route('/api/turn-off-camera', methods=['POST'])
@@ -199,14 +196,14 @@ def monitor_face_detection():
         time.sleep(1)  # Check every second
 
 # Start the monitor thread
+monitor_thread_started = False
 def start_monitor_thread():
-    monitor_thread = threading.Thread(target=monitor_face_detection)
-    monitor_thread.daemon = True
-    monitor_thread.start()
+    global monitor_thread_started
+    if not monitor_thread_started:
+        monitor_thread = threading.Thread(target=monitor_face_detection)
+        monitor_thread.daemon = True
+        monitor_thread.start()
+        monitor_thread_started = True
 
 if __name__ == '__main__':
-    start_camera_thread()
-    start_monitor_thread()
     socketio.run(app, host='0.0.0.0', port=5000, debug=True)
-
-
