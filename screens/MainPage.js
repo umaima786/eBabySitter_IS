@@ -13,6 +13,17 @@ const App = ({ navigation }) => {
   const socket = io('http://192.168.43.173:5000');
 
   useEffect(() => {
+    socket.on('test_event', (data) => {
+      console.log('Test event received:', data.message);
+    });
+  
+    return () => {
+      socket.off('test_event');
+    };
+  }, []);
+  
+
+  useEffect(() => {
     socket.on('connect', () => {
       console.log('Connected to Python server via WebSocket');
     });
@@ -30,24 +41,6 @@ const App = ({ navigation }) => {
       socket.disconnect();
     };
   }, [lastToastTime]);
-
-  useEffect(() => {
-    const eventSource = new EventSource('http://192.168.43.173:5000/api/sse');
-
-    eventSource.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      console.log('Message from server:', data.message);
-    };
-
-    eventSource.onerror = (error) => {
-      console.error('Error with SSE:', error);
-      eventSource.close();
-    };
-
-    return () => {
-      eventSource.close();
-    };
-  }, []);
 
   const toggleCameraOn = async () => {
     try {
