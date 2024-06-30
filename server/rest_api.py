@@ -10,13 +10,13 @@ import string
 from werkzeug.utils import secure_filename
 import threading
 import queue
+import time
 
 app = Flask(__name__)
 CORS(app)
 socketio = SocketIO(app, cors_allowed_origins="*")  # Allow all origins for WebSocket
 
 show_camera = False
-
 picam2 = None
 frame_queue = queue.Queue()
 
@@ -29,6 +29,8 @@ face_cascade = cv2.CascadeClassifier(haarcascade_path)
 if face_cascade.empty():
     print("Failed to load face detection model")
 
+# Global variable to track SSE clients
+sse_clients = []
 
 # Attempt to initialize the camera
 def initialize_camera():
@@ -42,7 +44,6 @@ def initialize_camera():
         except RuntimeError as e:
             print(f"Failed to initialize camera: {e}")
             picam2 = None
-
 
 def generate_camera_frames():
     while True:
@@ -61,8 +62,8 @@ def generate_camera_frames():
             print(f"Detected {len(faces)} faces")
 
             if len(faces) == 0:
-                socketio.emit('no_face_detected', {'message': 'No face detected'})
                 print("No face detected")
+                notify_clients()
 
             # Draw bounding boxes around detected faces
             for (x, y, w, h) in faces:
@@ -82,6 +83,9 @@ def generate_camera_frames():
 
             frame_queue.put(frame)
 
+def notify_clients():
+    for client in sse_clients:
+        client.put("data: No face detected\n\n")
 
 @app.route('/api/data')
 def get_data():
@@ -104,11 +108,6 @@ def turn_off_camera():
 @app.route('/api/camera-feed')
 def camera_feed():
     return Response(generate_camera_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
-
-@app.route('/test-emit')
-def test_emit():
-    socketio.emit('test_event', {'message': 'Test event'})
-    return jsonify({'success': True})
 
 @app.route('/api/play-song')
 def play_song():
@@ -177,6 +176,20 @@ def save_file():
 
         #play_audio(filepath)
         return jsonify({"message": "audio saved successfully", "filename": filename}), 200
+
+@app.route('/api/sse')
+def sse():
+    def event_stream(client):
+        try:
+            while True:
+                message = client.get()
+                yield message
+        except GeneratorExit:
+            sse_clients.remove(client)
+
+    client = queue.Queue()
+    sse_clients.append(client)
+    return Response(event_stream(client), mimetype='text/event-stream')
 
 def start_camera_thread():
     camera_thread = threading.Thread(target=generate_camera_frames)
