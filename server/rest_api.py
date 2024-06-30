@@ -180,4 +180,4 @@ def start_camera_thread():
 
 if __name__ == '__main__':
     start_camera_thread()
-    socketio.run(app, debug=True)
+    socketio.run(app, host='0.0.0.0', port=5000, debug=True)

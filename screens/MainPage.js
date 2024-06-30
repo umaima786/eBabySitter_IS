@@ -18,14 +18,15 @@ const App = ({ navigation }) => {
     });
 
     socket.on('no_face_detected', (data) => {
-      console.log("Received 'no_face_detected' event:", data);
+      console.log("no face"); // Log the message when no face is detected 
+      toast.error(data.message); // Show a toast notification with the message
       const currentTime = Date.now();
-      if (currentTime - lastToastTime > 10000) {
-        toast.error(data.message);
-        setLastToastTime(currentTime);
+      if (currentTime - lastToastTime > 10000) { // Check if 10 seconds have passed
+        toast.error(data.message); // Show a toast notification with the message
+        setLastToastTime(currentTime); // Update the last toast time
       }
     });
-
+    
     return () => {
       socket.disconnect();
     };
