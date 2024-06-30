@@ -13,7 +13,15 @@ import queue
 
 app = Flask(__name__)
 CORS(app)
-socketio = SocketIO(app, cors_allowed_origins="*")  # Allow all origins for WebSocket
+socketio = SocketIO(app, cors_allowed_origins="*")
+
+@socketio.on('connect')
+def test_connect():
+    print('Client connected')
+
+@socketio.on('disconnect')
+def test_disconnect():
+    print('Client disconnected')
 
 show_camera = False
 
