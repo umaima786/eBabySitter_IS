@@ -10,6 +10,7 @@ import string
 from werkzeug.utils import secure_filename
 import threading
 import queue
+import time
 
 app = Flask(__name__)
 CORS(app)
@@ -186,6 +187,17 @@ def start_camera_thread():
     camera_thread.daemon = True
     camera_thread.start()
 
+def emit_test_event():
+    while True:
+        socketio.emit('test_event', {'message': 'This is a test event'})
+        time.sleep(5)
+
+def start_background_task(task):
+    thread = threading.Thread(target=task)
+    thread.daemon = True
+    thread.start()
+
 if __name__ == '__main__':
+    start_background_task(emit_test_event)
     start_camera_thread()
     socketio.run(app, host='0.0.0.0', port=5000, debug=False)

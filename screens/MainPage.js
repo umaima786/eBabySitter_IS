@@ -17,6 +17,10 @@ const App = ({ navigation }) => {
       console.log('Connected to Python server via WebSocket');
     });
 
+    socket.on('test_event', () => {
+      console.log('test_event called.');
+    });
+
     socket.on('no_face_detected', (data) => {
       console.log("no face"); // Log the message when no face is detected 
       toast.error(data.message); // Show a toast notification with the message
