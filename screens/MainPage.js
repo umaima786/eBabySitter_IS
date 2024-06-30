@@ -13,6 +13,17 @@ const App = ({ navigation }) => {
   const socket = io('http://192.168.43.173:5000');
 
   useEffect(() => {
+    socket.on('test_event', (data) => {
+      console.log('Test event received:', data.message);
+    });
+  
+    return () => {
+      socket.off('test_event');
+    };
+  }, []);
+  
+
+  useEffect(() => {
     socket.on('connect', () => {
       console.log('Connected to Python server via WebSocket');
     });

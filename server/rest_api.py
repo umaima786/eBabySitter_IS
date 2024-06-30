@@ -105,6 +105,11 @@ def turn_off_camera():
 def camera_feed():
     return Response(generate_camera_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
+@app.route('/test-emit')
+def test_emit():
+    socketio.emit('test_event', {'message': 'Test event'})
+    return jsonify({'success': True})
+
 @app.route('/api/play-song')
 def play_song():
     sounds_dir = os.path.join(os.path.dirname(__file__), 'sounds')
