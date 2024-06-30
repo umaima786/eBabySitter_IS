@@ -13,16 +13,7 @@ import queue
 
 app = Flask(__name__)
 CORS(app)
-socketio = SocketIO(app, cors_allowed_origins="*")
-
-@socketio.on('connect')
-def test_connect():
-    print('Client connected')
-
-@socketio.on('disconnect')
-def test_disconnect():
-    print('Client disconnected')
-
+socketio = SocketIO(app, cors_allowed_origins="*")  # Allow all origins for WebSocket
 
 show_camera = False
 
@@ -58,21 +49,26 @@ def generate_camera_frames():
         if not frame_queue.empty():
             frame = frame_queue.get()
             
+            # Convert frame from RGB to BGR (since OpenCV uses BGR format)
             bgr_frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+
+            # Convert frame to grayscale for face detection
             gray = cv2.cvtColor(bgr_frame, cv2.COLOR_BGR2GRAY)
 
+            # Detect faces in the grayscale frame
             faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
 
             print(f"Detected {len(faces)} faces")
 
             if len(faces) == 0:
-                print("Emitting no_face_detected event")
-                socketio.start_background_task(socketio.emit, 'no_face_detected', {'message': 'No face detected'})
+                socketio.emit('no_face_detected', {'message': 'No face detected'})
                 print("No face detected")
 
+            # Draw bounding boxes around detected faces
             for (x, y, w, h) in faces:
                 cv2.rectangle(bgr_frame, (x, y), (x+w, y+h), (255, 0, 0), 2)
 
+            # Encode frame to JPEG format for streaming
             ret, jpeg = cv2.imencode('.jpg', bgr_frame)
             frame_bytes = jpeg.tobytes()
             yield (b'--frame\r\n'
@@ -85,7 +81,6 @@ def generate_camera_frames():
                 continue
 
             frame_queue.put(frame)
-
 
 
 @app.route('/api/data')
