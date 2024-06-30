@@ -188,6 +188,7 @@ def monitor_face_detection():
     global last_face_detected_time
     while True:
         current_time = time.time()
+        print(f"Current time: {current_time}, Last face detected time: {last_face_detected_time}")
         if current_time - last_face_detected_time > 5:
             # Send a message to the frontend via WebSocket
             socketio.emit('no_face_detected', {'message': 'No face detected for 5 seconds'})
