@@ -10,7 +10,6 @@ import string
 from werkzeug.utils import secure_filename
 import threading
 import queue
-import time
 
 app = Flask(__name__)
 CORS(app)
@@ -31,8 +30,6 @@ if face_cascade.empty():
     print("Failed to load face detection model")
 
 
-last_face_detected_time = time.time()
-
 # Attempt to initialize the camera
 def initialize_camera():
     global picam2
@@ -48,7 +45,6 @@ def initialize_camera():
 
 
 def generate_camera_frames():
-    global last_face_detected_time
     while True:
         if not frame_queue.empty():
             frame = frame_queue.get()
@@ -64,9 +60,9 @@ def generate_camera_frames():
 
             print(f"Detected {len(faces)} faces")
 
-            if len(faces) > 0:
-                # Update the time when a face is detected
-                last_face_detected_time = time.time()
+            if len(faces) == 0:
+                socketio.emit('no_face_detected', {'message': 'No face detected'})
+                print("No face detected")
 
             # Draw bounding boxes around detected faces
             for (x, y, w, h) in faces:
@@ -97,7 +93,6 @@ def toggle_camera():
     initialize_camera()
     global show_camera
     show_camera = True
-    start_monitor_thread()  # Start monitor thread when camera is toggled on
     return jsonify({'success': True})
 
 @app.route('/api/turn-off-camera', methods=['POST'])
@@ -183,27 +178,6 @@ def start_camera_thread():
     camera_thread.daemon = True
     camera_thread.start()
 
-def monitor_face_detection():
-    global last_face_detected_time
-    while True:
-        current_time = time.time()
-        print(f"Diff: {current_time - last_face_detected_time}")
-        if current_time - last_face_detected_time > 5:
-            # Send a message to the frontend via WebSocket
-            socketio.emit('no_face_detected', {'message': 'No face detected for 5 seconds'})
-            # Reset the timer to avoid continuous alerts
-            last_face_detected_time = current_time
-        time.sleep(1)  # Check every second
-
-# Start the monitor thread
-monitor_thread_started = False
-def start_monitor_thread():
-    global monitor_thread_started
-    if not monitor_thread_started:
-        monitor_thread = threading.Thread(target=monitor_face_detection)
-        monitor_thread.daemon = True
-        monitor_thread.start()
-        monitor_thread_started = True
-
 if __name__ == '__main__':
+    start_camera_thread()
     socketio.run(app, host='0.0.0.0', port=5000, debug=True)
