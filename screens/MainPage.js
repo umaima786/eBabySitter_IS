@@ -1,15 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { View, Image, StyleSheet } from 'react-native';
+import { View, Image, StyleSheet, Alert } from 'react-native';
 import { Provider as PaperProvider, Button, Appbar, Card } from 'react-native-paper';
 import io from 'socket.io-client';
-import { ToastContainer, toast } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css'; 
 import GenerateAndUpload from './GenerateAndUpload'; 
-import AudioUpload from './AudioUpload'
+import AudioUpload from './AudioUpload';
 
 const App = ({ navigation }) => {
   const [showCamera, setShowCamera] = useState(false);
-  const [lastToastTime, setLastToastTime] = useState(0); // State to track the last toast time
+  const [lastAlertTime, setLastAlertTime] = useState(0); // State to track the last alert time
   const socket = io('http://192.168.43.173:5000'); // Connect to the WebSocket server
 
   useEffect(() => {
@@ -18,19 +16,23 @@ const App = ({ navigation }) => {
     });
 
     socket.on('no_face_detected', (data) => {
-      console.log("no face"); // Log the message when no face is detected 
-      toast.error(data.message); // Show a toast notification with the message
+      console.log("no face"); // Log the message when no face is detected
       const currentTime = Date.now();
-      if (currentTime - lastToastTime > 10000) { // Check if 10 seconds have passed
-        toast.error(data.message); // Show a toast notification with the message
-        setLastToastTime(currentTime); // Update the last toast time
+      if (currentTime - lastAlertTime > 10000) { // Check if 10 seconds have passed since the last alert
+        Alert.alert(
+          'Face Not Detected',
+          data.message,
+          [{ text: 'OK', onPress: () => console.log('OK Pressed') }],
+          { cancelable: false }
+        );
+        setLastAlertTime(currentTime); // Update the last alert time
       }
     });
 
     return () => {
       socket.disconnect();
     };
-  }, [lastToastTime]);
+  }, [lastAlertTime]);
 
   const toggleCameraOn = async () => {
     try {
@@ -124,10 +126,8 @@ const App = ({ navigation }) => {
             </Button>
           </Card.Actions>
         </Card>
-        <GenerateAndUpload/> 
-        <AudioUpload/>
-        <ToastContainer /> 
-
+        <GenerateAndUpload /> 
+        <AudioUpload />
       </View>
     </PaperProvider>
   );
