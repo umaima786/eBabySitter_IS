@@ -65,6 +65,8 @@ def generate_camera_frames():
             # Detect faces in the grayscale frame
             faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
 
+            print(f"Detected {len(faces)} faces")
+
             if len(faces) > 0:
                 # Update the time when a face is detected
                 last_face_detected_time = time.time()
