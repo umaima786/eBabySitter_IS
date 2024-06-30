@@ -11,6 +11,7 @@ from werkzeug.utils import secure_filename
 from routes.auth import auth_blueprint
 import threading
 import queue
+import time
 
 app = Flask(__name__)
 CORS(app)
@@ -33,6 +34,8 @@ if face_cascade.empty():
 
 app.register_blueprint(auth_blueprint)
 
+last_face_detected_time = time.time()
+
 # Attempt to initialize the camera
 def initialize_camera():
     global picam2
@@ -48,6 +51,7 @@ def initialize_camera():
 
 
 def generate_camera_frames():
+    global last_face_detected_time
     while True:
         if not frame_queue.empty():
             frame = frame_queue.get()
@@ -60,6 +64,10 @@ def generate_camera_frames():
 
             # Detect faces in the grayscale frame
             faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+
+            if len(faces) > 0:
+                # Update the time when a face is detected
+                last_face_detected_time = time.time()
 
             # Draw bounding boxes around detected faces
             for (x, y, w, h) in faces:
@@ -78,6 +86,7 @@ def generate_camera_frames():
                 continue
 
             frame_queue.put(frame)
+
 
 
 @app.route('/api/data')
@@ -175,7 +184,26 @@ def start_camera_thread():
     camera_thread.daemon = True
     camera_thread.start()
 
+def monitor_face_detection():
+    global last_face_detected_time
+    while True:
+        current_time = time.time()
+        if current_time - last_face_detected_time > 5:
+            # Send a message to the frontend via WebSocket
+            socketio.emit('no_face_detected', {'message': 'No face detected for 5 seconds'})
+            # Reset the timer to avoid continuous alerts
+            last_face_detected_time = current_time
+        time.sleep(1)  # Check every second
+
+# Start the monitor thread
+def start_monitor_thread():
+    monitor_thread = threading.Thread(target=monitor_face_detection)
+    monitor_thread.daemon = True
+    monitor_thread.start()
+
 if __name__ == '__main__':
     start_camera_thread()
+    start_monitor_thread()
     socketio.run(app, host='0.0.0.0', port=5000, debug=True)
+
 
