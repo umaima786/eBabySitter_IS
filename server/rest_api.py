@@ -25,7 +25,6 @@ def test_disconnect():
     print('Client disconnected')
 
 show_camera = False
-
 picam2 = None
 frame_queue = queue.Queue()
 
@@ -37,7 +36,6 @@ haarcascade_path = '/home/aown/Desktop/eBabySitter/server/data/haarcascades/haar
 face_cascade = cv2.CascadeClassifier(haarcascade_path)
 if face_cascade.empty():
     print("Failed to load face detection model")
-
 
 # Attempt to initialize the camera
 def initialize_camera():
@@ -51,7 +49,6 @@ def initialize_camera():
         except RuntimeError as e:
             print(f"Failed to initialize camera: {e}")
             picam2 = None
-
 
 def generate_camera_frames():
     while True:
@@ -90,7 +87,6 @@ def generate_camera_frames():
                 continue
 
             frame_queue.put(frame)
-
 
 @app.route('/api/data')
 def get_data():
@@ -187,16 +183,6 @@ def start_camera_thread():
     camera_thread.daemon = True
     camera_thread.start()
 
-def emit_test_event():
-    while True:
-        socketio.emit('test_event', {'message': 'This is a test event'})
-
-def start_background_task(task):
-    thread = threading.Thread(target=task)
-    thread.daemon = True
-    thread.start()
-
 if __name__ == '__main__':
-    start_background_task(emit_test_event)
     start_camera_thread()
     socketio.run(app, host='0.0.0.0', port=5000, debug=False)
