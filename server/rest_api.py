@@ -47,6 +47,7 @@ def camera_feed_task():
             faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
             if len(faces) == 0:
                 socketio.emit('no_face_detected', {'message': 'No face detected'})
+                print("No face detected")
             for (x, y, w, h) in faces:
                 cv2.rectangle(bgr_frame, (x, y), (x+w, y+h), (255, 0, 0), 2)
             ret, jpeg = cv2.imencode('.jpg', bgr_frame)
