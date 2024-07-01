@@ -190,6 +190,7 @@ def start_camera_thread():
 def emit_test_event():
     while True:
         socketio.emit('test_event', {'message': 'This is a test event'})
+        time.sleep(5)
 
 def start_background_task(task):
     thread = threading.Thread(target=task)
