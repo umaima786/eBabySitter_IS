@@ -20,10 +20,6 @@ const App = ({ navigation }) => {
       console.log('Connected to Python server via WebSocket');
     });
 
-    socketRef.current.on('test_event', () => {
-      console.log('test_event called.');
-    });
-
     socketRef.current.on('no_face_detected', (data) => {
       console.log("no face"); // Log the message when no face is detected 
       const currentTime = Date.now();
