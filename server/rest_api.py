@@ -29,22 +29,18 @@ show_camera = False
 picam2 = None
 frame_queue = queue.Queue()
 
-# Initialize pygame mixer for playing audio
 pygame.mixer.init()
 
-# Load pre-trained face detection model
 haarcascade_path = '/home/aown/Desktop/eBabySitter/server/data/haarcascades/haarcascade_frontalface_default.xml'
 face_cascade = cv2.CascadeClassifier(haarcascade_path)
 if face_cascade.empty():
     print("Failed to load face detection model")
 
-# Attempt to initialize the camera
 def initialize_camera():
     global picam2
     if picam2 is None:
         try:
             picam2 = Picamera2()
-            # Adjust the size if necessary
             picam2.configure(picam2.create_preview_configuration(main={"size": (160, 120)}))
             picam2.start()
         except RuntimeError as e:
@@ -55,38 +51,24 @@ def generate_camera_frames():
     while True:
         if not frame_queue.empty():
             frame = frame_queue.get()
-            
-            # Convert frame from RGB to BGR (since OpenCV uses BGR format)
             bgr_frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-
-            # Convert frame to grayscale for face detection
             gray = cv2.cvtColor(bgr_frame, cv2.COLOR_BGR2GRAY)
-
-            # Detect faces in the grayscale frame
             faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
-
             print(f"Detected {len(faces)} faces")
-
             if len(faces) == 0:
                 socketio.emit('no_face_detected', {'message': 'No face detected'})
                 print("No face detected")
-
-            # Draw bounding boxes around detected faces
             for (x, y, w, h) in faces:
                 cv2.rectangle(bgr_frame, (x, y), (x+w, y+h), (255, 0, 0), 2)
-
-            # Encode frame to JPEG format for streaming
             ret, jpeg = cv2.imencode('.jpg', bgr_frame)
             frame_bytes = jpeg.tobytes()
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
-
         if show_camera and picam2 is not None:
             frame = picam2.capture_array()
             if frame is None:
                 print("Failed to capture frame")
                 continue
-
             frame_queue.put(frame)
 
 @app.route('/api/data')
@@ -115,14 +97,11 @@ def camera_feed():
 def play_song():
     sounds_dir = os.path.join(os.path.dirname(__file__), 'sounds')
     songs = [os.path.join(sounds_dir, song) for song in os.listdir(sounds_dir) if song.endswith('.mp3')]
-
     if not songs:
         return jsonify({'success': False, 'message': 'No songs found in sounds directory'})
-
     song_to_play = random.choice(songs)
     pygame.mixer.music.load(song_to_play)
     pygame.mixer.music.play()
-
     return jsonify({'success': True, 'song': os.path.basename(song_to_play)})
 
 @app.route('/api/stop-song', methods=['POST'])
@@ -130,7 +109,6 @@ def stop_song():
     pygame.mixer.music.stop()
     return jsonify({'success': True})
 
-# Upload folder configuration
 UPLOAD_FOLDER = 'uploads'
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
@@ -148,8 +126,6 @@ def upload_file():
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         file.save(filepath)
         print(filepath)
-
-        #play_audio(filepath)
         return jsonify({"message": "File uploaded successfully", "filename": filename}), 200
 
 def generate_random_string_with_extension(length):
@@ -157,7 +133,6 @@ def generate_random_string_with_extension(length):
     random_string = ''.join(random.choices(letters, k=length))
     return random_string + ".mp3"
 
-# Save folder configuration
 SAVE_FOLDER = 'save'
 if not os.path.exists(SAVE_FOLDER):
     os.makedirs(SAVE_FOLDER)
@@ -175,8 +150,6 @@ def save_file():
         filepath = os.path.join(app.config['SAVE_FOLDER'], filename)
         file.save(filepath)
         print(filepath)
-
-        #play_audio(filepath)
         return jsonify({"message": "audio saved successfully", "filename": filename}), 200
 
 def start_camera_thread():
