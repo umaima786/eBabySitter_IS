@@ -50,7 +50,14 @@ def initialize_camera():
             print(f"Failed to initialize camera: {e}")
             picam2 = None
 
-def generate_camera_frames():
+def capture_frames():
+    while show_camera:
+        frame = picam2.capture_array()
+        if frame is not None:
+            frame_queue.put(frame)
+        time.sleep(0.1)  # Adjust sleep time as necessary
+
+def process_frames():
     while True:
         if not frame_queue.empty():
             frame = frame_queue.get()
@@ -77,16 +84,7 @@ def generate_camera_frames():
             # Encode frame to JPEG format for streaming
             ret, jpeg = cv2.imencode('.jpg', bgr_frame)
             frame_bytes = jpeg.tobytes()
-            yield (b'--frame\r\n'
-                   b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
-
-        if show_camera and picam2 is not None:
-            frame = picam2.capture_array()
-            if frame is None:
-                print("Failed to capture frame")
-                continue
-
-            frame_queue.put(frame)
+            socketio.emit('camera_feed', frame_bytes)
 
 @app.route('/api/data')
 def get_data():
@@ -98,6 +96,7 @@ def toggle_camera():
     initialize_camera()
     global show_camera
     show_camera = True
+    threading.Thread(target=capture_frames, daemon=True).start()
     return jsonify({'success': True})
 
 @app.route('/api/turn-off-camera', methods=['POST'])
@@ -178,11 +177,6 @@ def save_file():
         #play_audio(filepath)
         return jsonify({"message": "audio saved successfully", "filename": filename}), 200
 
-def start_camera_thread():
-    camera_thread = threading.Thread(target=generate_camera_frames)
-    camera_thread.daemon = True
-    camera_thread.start()
-
 if __name__ == '__main__':
-    start_camera_thread()
+    threading.Thread(target=process_frames, daemon=True).start()
     socketio.run(app, host='0.0.0.0', port=5000, debug=False)
