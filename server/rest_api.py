@@ -8,7 +8,6 @@ import os
 import random
 import string
 from werkzeug.utils import secure_filename
-import threading
 import queue
 import time
 
@@ -16,88 +15,56 @@ app = Flask(__name__)
 CORS(app)
 socketio = SocketIO(app, cors_allowed_origins="*")
 
-@socketio.on('connect')
-def test_connect():
-    print('Client connected')
-
-@socketio.on('disconnect')
-def test_disconnect():
-    print('Client disconnected')
-
 show_camera = False
 picam2 = None
 frame_queue = queue.Queue()
 
-# Initialize pygame mixer for playing audio
 pygame.mixer.init()
 
-# Load pre-trained face detection model
 haarcascade_path = '/home/aown/Desktop/eBabySitter/server/data/haarcascades/haarcascade_frontalface_default.xml'
 face_cascade = cv2.CascadeClassifier(haarcascade_path)
 if face_cascade.empty():
     print("Failed to load face detection model")
 
-# Attempt to initialize the camera
 def initialize_camera():
     global picam2
     if picam2 is None:
         try:
             picam2 = Picamera2()
-            # Adjust the size if necessary
             picam2.configure(picam2.create_preview_configuration(main={"size": (160, 120)}))
             picam2.start()
         except RuntimeError as e:
             print(f"Failed to initialize camera: {e}")
             picam2 = None
 
-def generate_camera_frames():
-    while True:
+def camera_feed_task():
+    global show_camera
+    while show_camera:
         if not frame_queue.empty():
             frame = frame_queue.get()
-            
-            # Convert frame from RGB to BGR (since OpenCV uses BGR format)
             bgr_frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-
-            # Convert frame to grayscale for face detection
             gray = cv2.cvtColor(bgr_frame, cv2.COLOR_BGR2GRAY)
-
-            # Detect faces in the grayscale frame
             faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
-
-            print(f"Detected {len(faces)} faces")
-
             if len(faces) == 0:
                 socketio.emit('no_face_detected', {'message': 'No face detected'})
-                print("No face detected")
-
-            # Draw bounding boxes around detected faces
             for (x, y, w, h) in faces:
                 cv2.rectangle(bgr_frame, (x, y), (x+w, y+h), (255, 0, 0), 2)
-
-            # Encode frame to JPEG format for streaming
             ret, jpeg = cv2.imencode('.jpg', bgr_frame)
             frame_bytes = jpeg.tobytes()
-            yield (b'--frame\r\n'
-                   b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
-
-        if show_camera and picam2 is not None:
-            frame = picam2.capture_array()
-            if frame is None:
-                print("Failed to capture frame")
-                continue
-
-            frame_queue.put(frame)
+            socketio.emit('camera_frame', {'data': frame_bytes})
+        else:
+            time.sleep(0.1)
 
 @app.route('/api/data')
 def get_data():
-    data = {'message': 'Hello from Python server!'}
-    return jsonify(data)
+    return jsonify({'message': 'Hello from Python server!'})
 
 @app.route('/api/show-camera', methods=['POST'])
 def toggle_camera():
-    initialize_camera()
     global show_camera
+    initialize_camera()
     show_camera = True
+    socketio.start_background_task(camera_feed_task)
     return jsonify({'success': True})
 
 @app.route('/api/turn-off-camera', methods=['POST'])
@@ -106,22 +73,15 @@ def turn_off_camera():
     show_camera = False
     return jsonify({'success': True})
 
-@app.route('/api/camera-feed')
-def camera_feed():
-    return Response(generate_camera_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
-
 @app.route('/api/play-song')
 def play_song():
     sounds_dir = os.path.join(os.path.dirname(__file__), 'sounds')
     songs = [os.path.join(sounds_dir, song) for song in os.listdir(sounds_dir) if song.endswith('.mp3')]
-
     if not songs:
         return jsonify({'success': False, 'message': 'No songs found in sounds directory'})
-
     song_to_play = random.choice(songs)
     pygame.mixer.music.load(song_to_play)
     pygame.mixer.music.play()
-
     return jsonify({'success': True, 'song': os.path.basename(song_to_play)})
 
 @app.route('/api/stop-song', methods=['POST'])
@@ -129,7 +89,6 @@ def stop_song():
     pygame.mixer.music.stop()
     return jsonify({'success': True})
 
-# Upload folder configuration
 UPLOAD_FOLDER = 'uploads'
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
@@ -146,17 +105,8 @@ def upload_file():
         filename = secure_filename(file.filename)
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         file.save(filepath)
-        print(filepath)
-
-        #play_audio(filepath)
         return jsonify({"message": "File uploaded successfully", "filename": filename}), 200
 
-def generate_random_string_with_extension(length):
-    letters = string.ascii_letters + string.digits
-    random_string = ''.join(random.choices(letters, k=length))
-    return random_string + ".mp3"
-
-# Save folder configuration
 SAVE_FOLDER = 'save'
 if not os.path.exists(SAVE_FOLDER):
     os.makedirs(SAVE_FOLDER)
@@ -173,16 +123,12 @@ def save_file():
         filename = generate_random_string_with_extension(6)
         filepath = os.path.join(app.config['SAVE_FOLDER'], filename)
         file.save(filepath)
-        print(filepath)
-
-        #play_audio(filepath)
         return jsonify({"message": "audio saved successfully", "filename": filename}), 200
 
-def start_camera_thread():
-    camera_thread = threading.Thread(target=generate_camera_frames)
-    camera_thread.daemon = True
-    camera_thread.start()
+def generate_random_string_with_extension(length):
+    letters = string.ascii_letters + string.digits
+    random_string = ''.join(random.choices(letters, k=length))
+    return random_string + ".mp3"
 
 if __name__ == '__main__':
-    start_camera_thread()
     socketio.run(app, host='0.0.0.0', port=5000, debug=False)
