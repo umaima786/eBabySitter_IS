@@ -14,7 +14,7 @@ import time
 
 app = Flask(__name__)
 CORS(app)
-socketio = SocketIO(app, cors_allowed_origins="*")
+socketio = SocketIO(app, cors_allowed_origins="*", ping_interval=25)
 
 @socketio.on('connect')
 def test_connect():
