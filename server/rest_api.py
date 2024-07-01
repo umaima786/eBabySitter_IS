@@ -60,6 +60,7 @@ def process_frames():
     while True:
         if not frame_queue.empty():
             frame = frame_queue.get()
+
             bgr_frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
             gray = cv2.cvtColor(bgr_frame, cv2.COLOR_BGR2GRAY)
             faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
@@ -72,7 +73,8 @@ def process_frames():
 
             ret, jpeg = cv2.imencode('.jpg', bgr_frame)
             frame_bytes = jpeg.tobytes()
-            frame_queue.put(frame_bytes)
+            yield (b'--frame\r\n'
+                   b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
 
 def emit_events():
     while True:
@@ -100,15 +102,7 @@ def turn_off_camera():
 
 @app.route('/api/camera-feed')
 def camera_feed():
-    def generate():
-        while True:
-            if not frame_queue.empty():
-                frame_bytes = frame_queue.get()
-                yield (b'--frame\r\n'
-                       b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
-            else:
-                time.sleep(0.1)
-    return Response(generate(), mimetype='multipart/x-mixed-replace; boundary=frame')
+    return Response(process_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 @app.route('/api/play-song')
 def play_song():
@@ -173,9 +167,13 @@ def save_file():
         return jsonify({"message": "audio saved successfully", "filename": filename}), 200
 
 def start_background_threads():
-    threading.Thread(target=capture_frames, daemon=True).start()
-    threading.Thread(target=process_frames, daemon=True).start()
-    threading.Thread(target=emit_events, daemon=True).start()
+    camera_thread = threading.Thread(target=capture_frames)
+    camera_thread.daemon = True
+    camera_thread.start()
+
+    emit_thread = threading.Thread(target=emit_events)
+    emit_thread.daemon = True
+    emit_thread.start()
 
 if __name__ == '__main__':
     start_background_threads()
