@@ -1,36 +1,62 @@
-import React, { useEffect, useState } from 'react';
-import { View, Image, StyleSheet } from 'react-native';
-import { Provider as PaperProvider, Button, Appbar, Card } from 'react-native-paper';
-import io from 'socket.io-client';
-import { ToastContainer, toast } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css'; 
-import GenerateAndUpload from './GenerateAndUpload'; 
+import React, { useEffect, useState, useRef } from 'react';
+import { View, Image,StyleSheet, Button } from 'react-native';
+import { Provider as PaperProvider, Appbar, Card } from 'react-native-paper';
+import io from 'socket.io-client'; 
 import AudioUpload from './AudioUpload'
+import GenerateAndUpload from './GenerateAndUpload'
 
-const App = ({ navigation }) => {
+const App = () => {
   const [showCamera, setShowCamera] = useState(false);
-  const [lastToastTime, setLastToastTime] = useState(0); // State to track the last toast time
-  const socket = io('http://localhost:5000'); // Connect to the WebSocket server
+  const [audioContext, setAudioContext] = useState(null);
+  const [audioChunks, setAudioChunks] = useState([]);
+  const socket = useRef(null);
 
   useEffect(() => {
-    socket.on('connect', () => {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    setAudioContext(audioCtx);
+
+    socket.current = io('http://localhost:5000');
+
+    socket.current.on('connect', () => {
       console.log('Connected to Python server via WebSocket');
     });
 
-    socket.on('no_face_detected', (data) => {
-      console.log("no face"); // Log the message when no face is detected 
-      toast.error(data.message); // Show a toast notification with the message
-      const currentTime = Date.now();
-      if (currentTime - lastToastTime > 10000) { // Check if 10 seconds have passed
-        toast.error(data.message); // Show a toast notification with the message
-        setLastToastTime(currentTime); // Update the last toast time
-      }
+    socket.current.on('cry_detected', (data) => {
+      console.log(data.message);
+    });
+
+    socket.current.on('audio_stream', (data) => {
+      // Convert the received data from base64 string to ArrayBuffer
+      const audioData = new Uint8Array(data).buffer;
+      audioCtx.decodeAudioData(audioData, (buffer) => {
+        setAudioChunks((prevChunks) => [...prevChunks, buffer]);
+      }, (error) => {
+        console.error('Error decoding audio data:', error);
+      });
     });
 
     return () => {
-      socket.disconnect();
+      socket.current.disconnect();
     };
-  }, [lastToastTime]);
+  }, []);
+
+  useEffect(() => {
+    if (audioChunks.length > 0 && audioContext) {
+      const playAudioChunks = async () => {
+        for (const buffer of audioChunks) {
+          const source = audioContext.createBufferSource();
+          source.buffer = buffer;
+          source.connect(audioContext.destination);
+          source.start(0);
+          await new Promise((resolve) => {
+            source.onended = resolve;
+          });
+        }
+        setAudioChunks([]);
+      };
+      playAudioChunks();
+    }
+  }, [audioChunks, audioContext]);
 
   const toggleCameraOn = async () => {
     try {
@@ -39,11 +65,12 @@ const App = ({ navigation }) => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ show_camera: true }), // Turn on the camera
+        body: JSON.stringify({ show_camera: true }),
       });
       if (!response.ok) {
         throw new Error('Network response was not ok');
-      }
+      } 
+      console.log("showing camera")
       setShowCamera(true);
     } catch (error) {
       console.error('Error turning on camera:', error);
@@ -51,21 +78,7 @@ const App = ({ navigation }) => {
   };
 
   const toggleCameraOff = async () => {
-    try {
-      const response = await fetch('http://127.0.0.1:5000/api/turn-off-camera', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ show_camera: false }), // Turn off the camera
-      });
-      if (!response.ok) {
-        throw new Error('Network response was not ok');
-      }
-      setShowCamera(false);
-    } catch (error) {
-      console.error('Error turning off camera:', error);
-    }
+    setShowCamera(false);
   };
 
   const playSong = async () => {
@@ -77,7 +90,7 @@ const App = ({ navigation }) => {
         throw new Error('Network response was not ok');
       }
       const data = await response.json();
-      console.log(data.message); // This will log "Playing <song_name>"
+      console.log(data.message);
     } catch (error) {
       console.error('Error playing song:', error);
     }
@@ -106,28 +119,18 @@ const App = ({ navigation }) => {
         <Card style={styles.card}>
           {showCamera && <Image source={{ uri: 'http://127.0.0.1:5000/api/camera-feed' }} style={styles.cameraFeed} />}
           <Card.Actions>
-            <Button mode="contained" onPress={toggleCameraOn} style={styles.button} disabled={showCamera}>
-              Turn On Camera
-            </Button>
-            <Button mode="contained" onPress={toggleCameraOff} style={styles.button} disabled={!showCamera}>
-              Turn Off Camera
-            </Button>
+            <Button title="Turn On Camera" onPress={toggleCameraOn} disabled={showCamera} />
+            <Button title="Turn Off Camera" onPress={toggleCameraOff} disabled={!showCamera} />
           </Card.Actions>
         </Card>
         <Card style={styles.card}>
           <Card.Actions>
-            <Button mode="contained" onPress={playSong} style={styles.button}>
-              Play a Song
-            </Button>
-            <Button mode="contained" onPress={stopSong} style={styles.button}>
-              Stop Song
-            </Button>
+            <Button title="Play a Song" onPress={playSong} />
+            <Button title="Stop Song" onPress={stopSong} />
           </Card.Actions>
-        </Card>
-        <GenerateAndUpload/> 
+        </Card> 
         <AudioUpload/>
-        <ToastContainer /> 
-
+        <GenerateAndUpload/>
       </View>
     </PaperProvider>
   );
@@ -147,9 +150,6 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 10,
     elevation: 3,
-  },
-  button: {
-    margin: 10,
   },
 });
 
