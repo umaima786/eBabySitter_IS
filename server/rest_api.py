@@ -11,10 +11,11 @@ from werkzeug.utils import secure_filename
 import threading
 import queue
 import time
+import numpy as np
 
 app = Flask(__name__)
 CORS(app)
-socketio = SocketIO(app, cors_allowed_origins="*", ping_interval=25)
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 @socketio.on('connect')
 def test_connect():
@@ -27,7 +28,6 @@ def test_disconnect():
 show_camera = False
 picam2 = None
 frame_queue = queue.Queue()
-no_face_detected = False
 
 # Initialize pygame mixer for playing audio
 pygame.mixer.init()
@@ -51,15 +51,7 @@ def initialize_camera():
             print(f"Failed to initialize camera: {e}")
             picam2 = None
 
-def capture_frames():
-    while show_camera:
-        frame = picam2.capture_array()
-        if frame is not None:
-            frame_queue.put(frame)
-        time.sleep(0.1)  # Adjust sleep time as necessary
-
-def process_frames():
-    global no_face_detected
+def generate_camera_frames():
     while True:
         if not frame_queue.empty():
             frame = frame_queue.get()
@@ -76,9 +68,8 @@ def process_frames():
             print(f"Detected {len(faces)} faces")
 
             if len(faces) == 0:
-                no_face_detected = True
-            else:
-                no_face_detected = False
+                socketio.emit('no_face_detected', {'message': 'No face detected'})
+                print("No face detected")
 
             # Draw bounding boxes around detected faces
             for (x, y, w, h) in faces:
@@ -87,18 +78,16 @@ def process_frames():
             # Encode frame to JPEG format for streaming
             ret, jpeg = cv2.imencode('.jpg', bgr_frame)
             frame_bytes = jpeg.tobytes()
-            socketio.emit('camera_feed', frame_bytes)
-
-def generate_camera_frames():
-    while True:
-        if not frame_queue.empty():
-            frame = frame_queue.get()
-            # Convert frame to JPEG
-            ret, jpeg = cv2.imencode('.jpg', frame)
-            frame_bytes = jpeg.tobytes()
             yield (b'--frame\r\n'
-                   b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n\r\n')
-        time.sleep(0.1)  # Adjust sleep time as necessary
+                   b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+
+        if show_camera and picam2 is not None:
+            frame = picam2.capture_array()
+            if frame is None:
+                print("Failed to capture frame")
+                continue
+
+            frame_queue.put(frame)
 
 @app.route('/api/data')
 def get_data():
@@ -110,8 +99,6 @@ def toggle_camera():
     initialize_camera()
     global show_camera
     show_camera = True
-    threading.Thread(target=capture_frames, daemon=True).start()
-    threading.Thread(target=process_frames, daemon=True).start()
     return jsonify({'success': True})
 
 @app.route('/api/turn-off-camera', methods=['POST'])
@@ -162,6 +149,7 @@ def upload_file():
         file.save(filepath)
         print(filepath)
 
+        #play_audio(filepath)
         return jsonify({"message": "File uploaded successfully", "filename": filename}), 200
 
 def generate_random_string_with_extension(length):
@@ -188,11 +176,8 @@ def save_file():
         file.save(filepath)
         print(filepath)
 
+        #play_audio(filepath)
         return jsonify({"message": "audio saved successfully", "filename": filename}), 200
-
-@app.route('/api/face-status', methods=['GET'])
-def face_status():
-    return jsonify({'no_face_detected': no_face_detected})
 
 def start_camera_thread():
     camera_thread = threading.Thread(target=generate_camera_frames)
