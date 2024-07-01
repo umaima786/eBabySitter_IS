@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Image, StyleSheet } from 'react-native';
 import { Provider as PaperProvider, Button, Appbar, Card } from 'react-native-paper';
 import io from 'socket.io-client';
@@ -10,35 +10,44 @@ import AudioUpload from './AudioUpload';
 const App = ({ navigation }) => {
   const [showCamera, setShowCamera] = useState(false);
   const [lastToastTime, setLastToastTime] = useState(0);
-  const socket = io('http://192.168.43.173:5000');
-  
+  const socketRef = useRef(null);  // useRef to persist socket instance
+
   useEffect(() => {
-    socket.on('connect', () => {
+    // Initialize the socket connection
+    socketRef.current = io('http://192.168.178.53:5000');  // Replace with your server IP and port
+
+    socketRef.current.on('connect', () => {
       console.log('Connected to Python server via WebSocket');
     });
 
-    socket.on('test_event', () => {
+    socketRef.current.on('test_event', () => {
       console.log('test_event called.');
     });
 
-    socket.on('no_face_detected', (data) => {
+    socketRef.current.on('no_face_detected', (data) => {
       console.log("no face"); // Log the message when no face is detected 
-      toast.error(data.message); // Show a toast notification with the message
       const currentTime = Date.now();
       if (currentTime - lastToastTime > 10000) { // Check if 10 seconds have passed
         toast.error(data.message); // Show a toast notification with the message
         setLastToastTime(currentTime); // Update the last toast time
       }
     });
-    
+
+    socketRef.current.on('disconnect', () => {
+      console.log('Disconnected from Python server');
+    });
+
+    // Cleanup on component unmount
     return () => {
-      socket.disconnect();
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+      }
     };
   }, [lastToastTime]);
 
   const toggleCameraOn = async () => {
     try {
-      const response = await fetch('http://192.168.43.173:5000/api/show-camera', {
+      const response = await fetch('http://192.168.178.53:5000/api/show-camera', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -56,7 +65,7 @@ const App = ({ navigation }) => {
 
   const toggleCameraOff = async () => {
     try {
-      const response = await fetch('http://192.168.43.173:5000/api/turn-off-camera', {
+      const response = await fetch('http://192.168.178.53:5000/api/turn-off-camera', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -74,7 +83,7 @@ const App = ({ navigation }) => {
 
   const playSong = async () => {
     try {
-      const response = await fetch('http://192.168.43.173:5000/api/play-song', {
+      const response = await fetch('http://192.168.178.53:5000/api/play-song', {
         method: 'POST',
       });
       if (!response.ok) {
@@ -89,7 +98,7 @@ const App = ({ navigation }) => {
 
   const stopSong = async () => {
     try {
-      const response = await fetch('http://192.168.43.173:5000/api/stop-song', {
+      const response = await fetch('http://192.168.178.53:5000/api/stop-song', {
         method: 'POST',
       });
       if (!response.ok) {
@@ -108,7 +117,7 @@ const App = ({ navigation }) => {
           <Appbar.Content title="eBabySitter" />
         </Appbar.Header>
         <Card style={styles.card}>
-          {showCamera && <Image source={{ uri: 'http://192.168.43.173:5000/api/camera-feed' }} style={styles.cameraFeed} />}
+          {showCamera && <Image source={{ uri: 'http://192.168.178.53:5000/api/camera-feed' }} style={styles.cameraFeed} />}
           <Card.Actions>
             <Button mode="contained" onPress={toggleCameraOn} style={styles.button} disabled={showCamera}>
               Turn On Camera
