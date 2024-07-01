@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Image, StyleSheet } from 'react-native';
 import { Provider as PaperProvider, Button, Appbar, Card } from 'react-native-paper';
-import io from 'socket.io-client';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css'; 
 import GenerateAndUpload from './GenerateAndUpload'; 
@@ -10,35 +9,33 @@ import AudioUpload from './AudioUpload';
 const App = ({ navigation }) => {
   const [showCamera, setShowCamera] = useState(false);
   const [lastToastTime, setLastToastTime] = useState(0);
-  const socketRef = useRef(null);  // useRef to persist socket instance
 
   useEffect(() => {
-    // Initialize the socket connection
-    socketRef.current = io('http://192.168.178.53:5000');  // Replace with your server IP and port
-
-    socketRef.current.on('connect', () => {
-      console.log('Connected to Python server via WebSocket');
-    });
-
-    socketRef.current.on('no_face_detected', (data) => {
-      console.log("no face"); // Log the message when no face is detected 
-      const currentTime = Date.now();
-      if (currentTime - lastToastTime > 10000) { // Check if 10 seconds have passed
-        toast.error(data.message); // Show a toast notification with the message
-        setLastToastTime(currentTime); // Update the last toast time
-      }
-    });
-
-    socketRef.current.on('disconnect', () => {
-      console.log('Disconnected from Python server');
-    });
-
-    // Cleanup on component unmount
-    return () => {
-      if (socketRef.current) {
-        socketRef.current.disconnect();
+    // Polling function to check face detection status
+    const pollFaceStatus = async () => {
+      try {
+        const response = await fetch('http://192.168.178.53:5000/api/face-status');
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
+        }
+        const data = await response.json();
+        if (data.no_face_detected) {
+          const currentTime = Date.now();
+          if (currentTime - lastToastTime > 10000) { // Check if 10 seconds have passed
+            toast.error('No face detected'); // Show a toast notification with the message
+            setLastToastTime(currentTime); // Update the last toast time
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching face status:', error);
       }
     };
+
+    // Set an interval to poll face status every 2 seconds
+    const intervalId = setInterval(pollFaceStatus, 2000);
+
+    // Cleanup interval on component unmount
+    return () => clearInterval(intervalId);
   }, [lastToastTime]);
 
   const toggleCameraOn = async () => {
