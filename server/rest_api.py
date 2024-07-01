@@ -27,7 +27,6 @@ def test_disconnect():
 show_camera = False
 picam2 = None
 frame_queue = queue.Queue()
-latest_frame = None
 
 # Initialize pygame mixer for playing audio
 pygame.mixer.init()
@@ -52,7 +51,6 @@ def initialize_camera():
             picam2 = None
 
 def process_frames():
-    global latest_frame
     while True:
         if not frame_queue.empty():
             frame = frame_queue.get()
@@ -78,8 +76,8 @@ def process_frames():
 
             # Encode frame to JPEG format for streaming
             ret, jpeg = cv2.imencode('.jpg', bgr_frame)
-            latest_frame = jpeg.tobytes()
-            socketio.emit('frame', latest_frame)
+            frame_bytes = jpeg.tobytes()
+            socketio.emit('frame', frame_bytes)
 
 def capture_frames():
     while True:
@@ -112,15 +110,7 @@ def turn_off_camera():
 
 @app.route('/api/camera-feed')
 def camera_feed():
-    def generate():
-        global latest_frame
-        while True:
-            if latest_frame is not None:
-                yield (b'--frame\r\n'
-                       b'Content-Type: image/jpeg\r\n\r\n' + latest_frame + b'\r\n')
-            time.sleep(0.1)
-
-    return Response(generate(), mimetype='multipart/x-mixed-replace; boundary=frame')
+    return Response(generate_camera_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 @app.route('/api/play-song')
 def play_song():
