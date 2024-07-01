@@ -79,17 +79,15 @@ def process_frames():
             # Encode frame to JPEG format for streaming
             ret, jpeg = cv2.imencode('.jpg', bgr_frame)
             latest_frame = jpeg.tobytes()
-            socketio.emit('frame', latest_frame)
+
+        time.sleep(0.1)  # Avoid tight loop
 
 def capture_frames():
     while True:
         if show_camera and picam2 is not None:
             frame = picam2.capture_array()
-            if frame is None:
-                print("Failed to capture frame")
-                continue
-
-            frame_queue.put(frame)
+            if frame is not None:
+                frame_queue.put(frame)
         time.sleep(0.1)
 
 @app.route('/api/data')
@@ -191,9 +189,9 @@ def save_file():
         return jsonify({"message": "audio saved successfully", "filename": filename}), 200
 
 def start_threads():
-    camera_thread = threading.Thread(target=capture_frames)
-    camera_thread.daemon = True
-    camera_thread.start()
+    capture_thread = threading.Thread(target=capture_frames)
+    capture_thread.daemon = True
+    capture_thread.start()
 
     processing_thread = threading.Thread(target=process_frames)
     processing_thread.daemon = True
