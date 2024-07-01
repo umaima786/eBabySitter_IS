@@ -11,6 +11,7 @@ from werkzeug.utils import secure_filename
 import threading
 import queue
 import time
+import numpy as np
 
 app = Flask(__name__)
 CORS(app)
@@ -53,26 +54,32 @@ def capture_frames():
     while True:
         if show_camera and picam2 is not None:
             frame = picam2.capture_array()
-            if frame is not None:
+            if frame is not None and isinstance(frame, np.ndarray):
                 frame_queue.put(frame)
+            else:
+                print("Captured frame is not valid")
 
 def process_frames():
     while True:
         if not frame_queue.empty():
             frame = frame_queue.get()
-            bgr_frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-            gray = cv2.cvtColor(bgr_frame, cv2.COLOR_BGR2GRAY)
-            faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+            if isinstance(frame, np.ndarray):
+                bgr_frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+                gray = cv2.cvtColor(bgr_frame, cv2.COLOR_BGR2GRAY)
+                faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
 
-            if len(faces) == 0:
-                emit_queue.put(('no_face_detected', {'message': 'No face detected'}))
+                if len(faces) == 0:
+                    emit_queue.put(('no_face_detected', {'message': 'No face detected'}))
 
-            for (x, y, w, h) in faces:
-                cv2.rectangle(bgr_frame, (x, y), (x+w, y+h), (255, 0, 0), 2)
+                for (x, y, w, h) in faces:
+                    cv2.rectangle(bgr_frame, (x, y), (x+w, y+h), (255, 0, 0), 2)
 
-            ret, jpeg = cv2.imencode('.jpg', bgr_frame)
-            frame_bytes = jpeg.tobytes()
-            frame_queue.put(frame_bytes)
+                ret, jpeg = cv2.imencode('.jpg', bgr_frame)
+                if ret:
+                    frame_bytes = jpeg.tobytes()
+                    frame_queue.put(frame_bytes)
+            else:
+                print("Processed frame is not valid")
 
 def emit_events():
     while True:
