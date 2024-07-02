@@ -98,7 +98,7 @@ def camera_feed():
 sounds_dir = os.path.join(os.path.dirname(__file__), 'sounds')
 songs = [os.path.join(sounds_dir, song) for song in os.listdir(sounds_dir) if song.endswith('.mp3')]
 
-@app.route('/api/play-song', methods=['POST'])
+@app.route('/api/play-song')
 def play_song():
     if not songs:
         return jsonify({'success': False, 'message': 'No songs found in sounds directory'})
