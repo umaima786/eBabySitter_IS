@@ -82,6 +82,7 @@ const App = ({ navigation }) => {
       const response = await fetch('http://192.168.178.53:5000/api/play-song', {
         method: 'POST',
       });
+      console.log(response);
       if (!response.ok) {
         throw new Error('Network response was not ok');
       }

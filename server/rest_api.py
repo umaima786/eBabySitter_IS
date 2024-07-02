@@ -29,7 +29,8 @@ show_camera = False
 picam2 = None
 frame_queue = queue.Queue()
 
-pygame.mixer.init()
+# Initialize Pygame mixer with optimized settings
+pygame.mixer.init(frequency=22050, size=-16, channels=2, buffer=4096)
 
 haarcascade_path = '/home/aown/Desktop/eBabySitter/server/data/haarcascades/haarcascade_frontalface_default.xml'
 face_cascade = cv2.CascadeClassifier(haarcascade_path)
@@ -93,10 +94,12 @@ def turn_off_camera():
 def camera_feed():
     return Response(generate_camera_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
-@app.route('/api/play-song')
+# Preload songs
+sounds_dir = os.path.join(os.path.dirname(__file__), 'sounds')
+songs = [os.path.join(sounds_dir, song) for song in os.listdir(sounds_dir) if song.endswith('.mp3')]
+
+@app.route('/api/play-song', methods=['POST'])
 def play_song():
-    sounds_dir = os.path.join(os.path.dirname(__file__), 'sounds')
-    songs = [os.path.join(sounds_dir, song) for song in os.listdir(sounds_dir) if song.endswith('.mp3')]
     if not songs:
         return jsonify({'success': False, 'message': 'No songs found in sounds directory'})
     song_to_play = random.choice(songs)
