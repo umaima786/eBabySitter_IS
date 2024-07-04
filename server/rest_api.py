@@ -66,15 +66,12 @@ def generate_camera_frames():
             faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
             print(f"Detected {len(faces)} faces")
             if len(faces) == 0:
-                print('no face detected')
-                # When no face is detected, send a POST request to update face_found to false
-                try:
-                    print('sending post request')
-                    requests.post(NODE_SERVER_URL + 'update-face-status', json={'face_found': False})
-                except requests.exceptions.RequestException as e:
-                    print(f"Error updating face_found: {e}")
+                print('sending post request')
+                requests.post(NODE_SERVER_URL + 'update-face-status', json={'face_found': False})
+            
             for (x, y, w, h) in faces:
                 cv2.rectangle(bgr_frame, (x, y), (x+w, y+h), (255, 0, 0), 2)
+            
             ret, jpeg = cv2.imencode('.jpg', bgr_frame)
             frame_bytes = jpeg.tobytes()
             yield (b'--frame\r\n'
