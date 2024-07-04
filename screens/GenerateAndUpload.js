@@ -43,11 +43,12 @@ const RecordAndUpload = () => {
     const uploadAudio = async (audioBlob) => {
         const formData = new FormData();
         formData.append('file', audioBlob, 'recorded_audio.wav');
-
+    
         try {
-            const response = await axios.post('http://localhost:5000/upload', formData, {
+            const response = await axios.post('http://localhost:5000/record', formData, {
                 headers: {
-                    'Content-Type': 'multipart/form-data'
+                    'Content-Type': 'multipart/form-data',
+                    'Access-Control-Allow-Origin': '*'
                 }
             });
             setMessage(response.data.message);
@@ -56,6 +57,7 @@ const RecordAndUpload = () => {
             setMessage('File upload failed.');
         }
     };
+    
 
     return (
         <div>
