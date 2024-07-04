@@ -41,8 +41,6 @@ app.register_blueprint(auth_blueprint)
 
 NODE_SERVER_URL = 'http://192.168.43.177:3000/'
 
-
-
 haarcascade_path = '/home/aown/Desktop/eBabySitter/server/data/haarcascades/haarcascade_frontalface_default.xml'
 face_cascade = cv2.CascadeClassifier(haarcascade_path)
 if face_cascade.empty():
@@ -71,8 +69,8 @@ def generate_camera_frames():
                 print('no face detected')
                 # When no face is detected, send a POST request to update face_found to false
                 try:
+                    print('sending post request')
                     requests.post(NODE_SERVER_URL + 'update-face-status', json={'face_found': False})
-
                 except requests.exceptions.RequestException as e:
                     print(f"Error updating face_found: {e}")
             for (x, y, w, h) in faces:
