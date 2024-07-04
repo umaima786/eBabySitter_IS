@@ -17,7 +17,7 @@ const App = () => {
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     setAudioContext(audioCtx);
 
-    socket.current = io('http://localhost:5000');
+    socket.current = io('http://192.168.178.53:5000');
 
     socket.current.on('connect', () => {
       console.log('Connected to Python server via WebSocket');
