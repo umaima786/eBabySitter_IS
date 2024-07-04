@@ -80,7 +80,7 @@ const App = ({ navigation }) => {
   const playSong = async () => {
     try {
       const response = await fetch('http://192.168.178.53:5000/api/play-song', {
-        method: 'POST',
+        method: 'GET',
       });
       console.log(response);
       if (!response.ok) {
