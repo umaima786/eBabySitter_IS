@@ -1,44 +1,53 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Image,StyleSheet, Button } from 'react-native';
+import { View, Image, StyleSheet, Button, Picker, Text, TextInput } from 'react-native';
 import { Provider as PaperProvider, Appbar, Card } from 'react-native-paper';
 import io from 'socket.io-client'; 
-import AudioUpload from './AudioUpload'
-import GenerateAndUpload from './GenerateAndUpload'
+import AudioUpload from './AudioUpload';
+import GenerateAndUpload from './GenerateAndUpload';
 
 const App = () => {
   const [showCamera, setShowCamera] = useState(false);
   const [audioContext, setAudioContext] = useState(null);
   const [audioChunks, setAudioChunks] = useState([]);
+  const [songs, setSongs] = useState([]);
+  const [selectedSong, setSelectedSong] = useState('');
+  const [newSongName, setNewSongName] = useState('');
   const socket = useRef(null);
 
   useEffect(() => {
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    setAudioContext(audioCtx);
-
-    socket.current = io('http://localhost:5000');
-
-    socket.current.on('connect', () => {
-      console.log('Connected to Python server via WebSocket');
-    });
-
-    socket.current.on('cry_detected', (data) => {
-      console.log(data.message);
-    });
-
-    socket.current.on('audio_stream', (data) => {
-      // Convert the received data from base64 string to ArrayBuffer
-      const audioData = new Uint8Array(data).buffer;
-      audioCtx.decodeAudioData(audioData, (buffer) => {
-        setAudioChunks((prevChunks) => [...prevChunks, buffer]);
-      }, (error) => {
-        console.error('Error decoding audio data:', error);
-      });
-    });
-
-    return () => {
-      socket.current.disconnect();
+    const fetchData = async () => {
+      await fetchSongs();
+      const interval = setInterval(async () => {
+        try {
+          const response = await fetch('http://localhost:3000/api/face-status');
+          if (!response.ok) {
+            throw new Error('Network response was not ok');
+          }
+          const data = await response.json();
+          console.log('Face Status:', data);
+        } catch (error) {
+          console.error('Error fetching face status:', error);
+        }
+      }, 5000);
+      return () => clearInterval(interval);
     };
+    fetchData();
+    return () => {};
   }, []);
+
+  const fetchSongs = async () => {
+    try {
+      const response = await fetch('http://localhost:5000/api/list-songs');
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+      const data = await response.json();
+      setSongs(data.songs);
+      setSelectedSong(data.songs[0]);
+    } catch (error) {
+      console.error('Error fetching songs:', error);
+    }
+  };
 
   useEffect(() => {
     if (audioChunks.length > 0 && audioContext) {
@@ -84,7 +93,12 @@ const App = () => {
   const playSong = async () => {
     try {
       const response = await fetch('http://localhost:5000/api/play-song', {
-        method: 'GET',
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ song: selectedSong }), 
+        mode: 'cors'
       });
       if (!response.ok) {
         throw new Error('Network response was not ok');
@@ -110,6 +124,46 @@ const App = () => {
     }
   };
 
+  const deleteSong = async () => {
+    try {
+      const response = await fetch('http://localhost:5000/api/delete-song', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ song: selectedSong }),
+      });
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+      const data = await response.json();
+      console.log(data.message);
+      await fetchSongs(); // Refresh song list
+    } catch (error) {
+      console.error('Error deleting song:', error);
+    }
+  };
+
+  const renameSong = async () => {
+    try {
+      const response = await fetch('http://localhost:5000/api/rename-song', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ oldName: selectedSong, newName: newSongName }),
+      });
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+      const data = await response.json();
+      console.log(data.message);
+      await fetchSongs(); // Refresh song list
+    } catch (error) {
+      console.error('Error renaming song:', error);
+    }
+  };
+
   return (
     <PaperProvider>
       <View style={styles.container}>
@@ -124,11 +178,27 @@ const App = () => {
           </Card.Actions>
         </Card>
         <Card style={styles.card}>
+          <Picker
+            selectedValue={selectedSong}
+            onValueChange={(itemValue) => setSelectedSong(itemValue)}
+          >
+            {songs.map((song, index) => (
+              <Picker.Item key={index} label={song} value={song} />
+            ))}
+          </Picker>
           <Card.Actions>
-            <Button title="Play a Song" onPress={playSong} />
+            <Button title="Play Selected Song" onPress={playSong} />
             <Button title="Stop Song" onPress={stopSong} />
+            <Button title="Delete Song" onPress={deleteSong} />
           </Card.Actions>
-        </Card> 
+          <TextInput
+            style={styles.input}
+            placeholder="New song name"
+            value={newSongName}
+            onChangeText={setNewSongName}
+          />
+          <Button title="Rename Song" onPress={renameSong} />
+        </Card>
         <AudioUpload/>
         <GenerateAndUpload/>
       </View>
@@ -146,10 +216,15 @@ const styles = StyleSheet.create({
     height: 300,
   },
   card: {
-    margin: 20,
+    margin: 10,
     padding: 10,
-    borderRadius: 10,
-    elevation: 3,
+  },
+  input: {
+    height: 40,
+    borderColor: 'gray',
+    borderWidth: 1,
+    marginBottom: 10,
+    padding: 10,
   },
 });
 
