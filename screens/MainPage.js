@@ -37,7 +37,7 @@ const App = () => {
 
   const fetchSongs = async () => {
     try {
-      const response = await fetch('http://192.168.178.53:5000/api/list-songs');
+      const response = await fetch('http://192.168.43.173:5000/api/list-songs');
       if (!response.ok) {
         throw new Error('Network response was not ok');
       }
@@ -69,7 +69,7 @@ const App = () => {
 
   const toggleCameraOn = async () => {
     try {
-      const response = await fetch('http://192.168.178.53:5000/api/show-camera', {
+      const response = await fetch('http://192.168.43.173:5000/api/show-camera', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -92,7 +92,7 @@ const App = () => {
 
   const playSong = async () => {
     try {
-      const response = await fetch('http://192.168.178.53:5000/api/play-song', {
+      const response = await fetch('http://192.168.43.173:5000/api/play-song', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -113,7 +113,7 @@ const App = () => {
 
   const stopSong = async () => {
     try {
-      const response = await fetch('http://192.168.178.53:5000/api/stop-song', {
+      const response = await fetch('http://192.168.43.173:5000/api/stop-song', {
         method: 'POST',
       });
       if (!response.ok) {
@@ -127,7 +127,7 @@ const App = () => {
 
   const deleteSong = async () => {
     try {
-      const response = await fetch('http://192.168.178.53:5000/api/delete-song', {
+      const response = await fetch('http://192.168.43.173:5000/api/delete-song', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -147,7 +147,7 @@ const App = () => {
 
   const renameSong = async () => {
     try {
-      const response = await fetch('http://192.168.178.53:5000/api/rename-song', {
+      const response = await fetch('http://192.168.43.173:5000/api/rename-song', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -172,7 +172,7 @@ const App = () => {
           <Appbar.Content title="eBabySitter" />
         </Appbar.Header>
         <Card style={styles.card}>
-          {showCamera && <Image source={{ uri: 'http://192.168.178.53:5000/api/camera-feed' }} style={styles.cameraFeed} />}
+          {showCamera && <Image source={{ uri: 'http://192.168.43.173:5000/api/camera-feed' }} style={styles.cameraFeed} />}
           <Card.Actions>
             <Button title="Turn On Camera" onPress={toggleCameraOn} disabled={showCamera} />
             <Button title="Turn Off Camera" onPress={toggleCameraOff} disabled={!showCamera} />
