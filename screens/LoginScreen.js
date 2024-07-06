@@ -1,97 +1,89 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, TextInput, Alert } from 'react-native';
 import { Button, Appbar, Card } from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { View, Text, TextInput, Image, StyleSheet, TouchableOpacity } from 'react-native';
 
-const LoginScreen = ({ navigation }) => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-
-  const handleLogin = async () => {
-    try {
-      const response = await fetch('http://127.0.0.1:5000/api/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        Alert.alert('Success', 'Logged in successfully');
-        // Save the email to AsyncStorage
-        await AsyncStorage.setItem('userEmail', email);
-        navigation.navigate('Main');
-      } else {
-        Alert.alert('Error', data.message);
-      }
-    } catch (error) {
-      console.error('Error logging in:', error);
-      Alert.alert('Error', 'An error occurred. Please try again.');
-    }
-  };
-
+const LoginScreen = () => {
   return (
     <View style={styles.container}>
-      <Appbar.Header>
-        <Appbar.BackAction onPress={() => navigation.goBack()} />
-        <Appbar.Content title="Log In" />
-      </Appbar.Header>
-      <View style={styles.content}>
-        <Card style={styles.card}>
-          <TextInput
-            style={styles.input}
-            placeholder="Email"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Password"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
-          <Button mode="contained" onPress={handleLogin} style={styles.button}>
-            Log In
-          </Button>
-        </Card>
+      <Text style={styles.time}>9:41</Text>
+      <Image source={{ uri: 'baby-icon-url' }} style={styles.icon} />
+      <Text style={styles.loginText}>Login</Text>
+      <View style={styles.inputContainer}>
+        <Text style={styles.label}>Email</Text>
+        <TextInput style={styles.input} placeholder="Enter your email" />
       </View>
+      <View style={styles.inputContainer}>
+        <Text style={styles.label}>Password</Text>
+        <TextInput style={styles.input} placeholder="Enter your password" secureTextEntry={true} />
+      </View>
+      <TouchableOpacity style={styles.loginButton}>
+        <Text style={styles.loginButtonText}>→</Text>
+      </TouchableOpacity>
+      <Text style={styles.footerText}>eBabySitter</Text>
     </View>
   );
 };
+
 const styles = StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: '#f0f0f0',
-    },
-    content: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      paddingHorizontal: 20,
-    },
-    card: {
-      width: '100%',
-      padding: 20,
-      borderRadius: 10,
-      elevation: 3,
-    },
-    input: {
-      height: 50,
-      borderColor: '#ddd',
-      borderWidth: 1,
-      marginBottom: 20,
-      paddingHorizontal: 10,
-    },
-    button: {
-      height: 50,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-  });
+  container: {
+    flex: 1,
+    backgroundColor: '#9b59b6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+  },
+  time: {
+    fontSize: 18,
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    color: '#fff',
+  },
+  icon: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    marginBottom: 20,
+  },
+  loginText: {
+    fontSize: 24,
+    color: '#fff',
+    marginBottom: 20,
+  },
+  inputContainer: {
+    width: '80%',
+    marginBottom: 20,
+  },
+  label: {
+    fontSize: 16,
+    color: '#fff',
+    marginBottom: 5,
+  },
+  input: {
+    backgroundColor: '#fff',
+    borderRadius: 5,
+    padding: 10,
+  },
+  loginButton: {
+    backgroundColor: '#fff',
+    borderRadius: 50,
+    width: 50,
+    height: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 20,
+  },
+  loginButtonText: {
+    fontSize: 24,
+    color: '#9b59b6',
+  },
+  footerText: {
+    fontSize: 18,
+    color: '#fff',
+    position: 'absolute',
+    bottom: 10,
+  },
+});
+
 export default LoginScreen;
